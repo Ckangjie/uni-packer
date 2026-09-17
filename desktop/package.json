@@ -1,0 +1,43 @@
+{
+  "name": "uniapp-pack-desktop",
+  "version": "1.0.0",
+  "private": true,
+  "main": "electron/main.js",
+  "scripts": {
+    "dev": "vite",
+    "electron": "electron .",
+    "electron:dev": "electron .",
+    "build": "vite build",
+    "preview": "vite preview",
+    "pack:exe": "vite build && electron-builder --win portable && node -e \"const fs = require('fs'); const path = require('path'); fs.copyFileSync('release/UniAppPackDesktop.exe', '../UniAppPackDesktop.exe'); console.log('✅ 已成功输出至根目录: ' + path.resolve('../UniAppPackDesktop.exe'));\""
+  },
+  "dependencies": {
+    "vue": "^3.5.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.1.0",
+    "electron": "^31.0.0",
+    "electron-builder": "^24.13.3",
+    "sass": "^1.77.0",
+    "vite": "^5.4.0"
+  },
+  "build": {
+    "appId": "com.boil.uniapppackdesktop",
+    "productName": "UniAppPackDesktop",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        "portable"
+      ],
+      "signAndEditExecutable": false,
+      "artifactName": "UniAppPackDesktop.exe"
+    }
+  }
+}
