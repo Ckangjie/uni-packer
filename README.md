@@ -7,6 +7,5 @@
 ```text
 uniapp-pack-desktop/
 ├── desktop/         # 桌面端工程 (Electron + Vue 3 + Vite + SCSS)
-├── config/          # 打包签名与全局配置
-└── start.bat        # 启动脚本
+└── config/          # 打包签名与全局配置
 ```
