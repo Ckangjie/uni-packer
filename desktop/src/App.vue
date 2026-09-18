@@ -475,7 +475,7 @@ async function onSwitchProject(dir) {
 }
 
 // 保存配置
-async function onSaveConfig() {
+async function onSaveConfig(isSilent = false) {
   isSavingConfig.value = true
   try {
     await saveProjectConfig({
@@ -494,9 +494,13 @@ async function onSaveConfig() {
       is_default_cert: packConfig.isDefaultCert,
       is_uni_app: true
     })
-    showToast('💾 打包配置已成功保存')
+    if (!isSilent) {
+      showToast('💾 打包配置已成功保存')
+    }
   } catch (err) {
-    showToast('❌ 保存配置失败')
+    if (!isSilent) {
+      showToast('❌ 保存配置失败')
+    }
   } finally {
     isSavingConfig.value = false
   }
@@ -631,7 +635,7 @@ async function onStartBuild() {
   terminalRef.value?.appendLog('🚀 启动本地纯原生离线打包流水线...\n', 'info')
 
   try {
-    await onSaveConfig()
+    await onSaveConfig(true)
     await startOfflineBuildApi({
       project_dir: packConfig.projectDir,
       app_name: packConfig.appName,
@@ -940,38 +944,53 @@ onUnmounted(() => {
     .main-body {
       flex: 1;
       overflow-y: auto;
-      padding: 20px 24px;
+      overflow-x: hidden;
+      padding: 16px 20px;
 
       .tab-pane {
+        width: 100%;
         max-width: 1280px;
         margin: 0 auto;
 
         &.tab-workbench {
+          width: 100%;
           max-width: 100%;
 
           .workbench-grid {
             display: grid;
-            grid-template-columns: minmax(440px, 500px) 1fr;
-            gap: 16px;
+            grid-template-columns: minmax(360px, 480px) minmax(0, 1fr);
+            gap: 14px;
             align-items: start;
+            width: 100%;
+            min-width: 0;
 
-            @media (max-width: 1100px) {
+            @media (max-width: 1020px) {
               grid-template-columns: 1fr;
+            }
+
+            .config-col {
+              width: 100%;
+              min-width: 0;
             }
 
             .terminal-col {
               display: flex;
               flex-direction: column;
               gap: 12px;
+              width: 100%;
+              min-width: 0;
 
               .build-result-card {
                 display: flex;
                 align-items: center;
                 justify-content: space-between;
-                padding: 12px 16px;
-                gap: 14px;
+                padding: 10px 14px;
+                gap: 12px;
                 border-radius: 8px;
                 animation: fadeIn 0.3s ease;
+                width: 100%;
+                min-width: 0;
+                box-sizing: border-box;
 
                 &.success {
                   background: rgba(22, 38, 27, 0.7);
@@ -1001,6 +1020,7 @@ onUnmounted(() => {
                   .result-icon {
                     font-size: 20px;
                     line-height: 1;
+                    flex-shrink: 0;
                   }
 
                   .result-content {
@@ -1010,6 +1030,9 @@ onUnmounted(() => {
                     .result-title {
                       font-size: 13px;
                       font-weight: 600;
+                      white-space: nowrap;
+                      overflow: hidden;
+                      text-overflow: ellipsis;
                     }
 
                     .result-msg {
@@ -1026,6 +1049,7 @@ onUnmounted(() => {
 
                 .result-actions {
                   flex-shrink: 0;
+                  white-space: nowrap;
                 }
               }
             }

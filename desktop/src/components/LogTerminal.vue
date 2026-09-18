@@ -113,29 +113,39 @@ defineExpose({
 <style lang="scss" scoped>
 .log-terminal-card {
   margin-top: 0;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 
   .title-left {
     display: flex;
     align-items: center;
     gap: 8px;
+    min-width: 0;
   }
 
   .title-actions {
+    flex-shrink: 0;
+
     .btn-build {
       padding: 4px 14px;
       font-size: 12px;
       font-weight: 600;
       border-radius: 6px;
+      white-space: nowrap;
     }
   }
 
   .terminal-window {
     width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
     height: calc(100vh - 280px);
-    min-height: 360px;
+    min-height: 320px;
     border: 1px solid var(--card-border);
     border-radius: 8px;
     overflow-y: auto;
+    overflow-x: hidden;
     background: var(--code-bg);
     padding: 12px 14px;
     font-family: Consolas, "Courier New", monospace;
