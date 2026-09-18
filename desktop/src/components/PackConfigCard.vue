@@ -1,182 +1,160 @@
 <template>
   <div class="pack-config-container">
-    <!-- 上方双列：工程基础信息 + 签名证书配置 -->
-    <div class="blocks-top-row">
-      <!-- 分块 1：工程与应用基础 -->
-      <div class="card config-block-card block-app">
-        <div class="card-title">
-          <span>📱 工程与应用基础</span>
-        </div>
+    <!-- 分块 1：工程与应用基础 -->
+    <div class="card config-block-card block-app">
+      <div class="card-title">
+        <span>📱 工程与应用基础</span>
+      </div>
 
-        <!-- 目标工程路径选择 -->
-        <div class="project-picker-box">
-          <div class="picker-header">
-            <label>📁 目标 uni-app 项目目录</label>
-            <span class="picker-tip">自动识别包管理器</span>
-          </div>
-          <div class="picker-row">
-            <input
-              type="text"
-              class="form-control mono-input"
-              :value="modelValue.projectDir"
-              placeholder="点击右侧选择目录，或直接输入本地路径"
-              @input="updateField('projectDir', $event.target.value)"
-              @change="handleProjectChange"
-              @keydown.enter="handleProjectChange"
-            />
-            <button class="btn btn-secondary btn-browse" :disabled="isBrowsing" @click="handleBrowseDir">
-              <span>📁 {{ isBrowsing ? '打开中...' : '选择目录' }}</span>
-            </button>
-          </div>
+      <!-- 目标工程路径选择 -->
+      <div class="project-picker-box">
+        <div class="picker-header">
+          <label>📁 目标 uni-app 项目目录</label>
+          <span class="picker-tip">自动识别包管理器</span>
         </div>
-
-        <!-- 应用桌面图标 -->
-        <div class="icon-section">
-          <div class="icon-avatar">
-            <img
-              v-if="iconPreviewUrl && !hasIconLoadError"
-              :src="iconPreviewUrl"
-              alt="App Icon"
-              @error="hasIconLoadError = true"
-              @load="hasIconLoadError = false"
-            />
-            <span v-else class="icon-fallback">📱</span>
-          </div>
-          <div class="icon-meta">
-            <div class="icon-title-bar">
-              <span class="icon-title">应用桌面图标</span>
-              <span v-if="hasIconUpdated" class="icon-status-ok">✅ 已保存并同步</span>
-            </div>
-            <div class="icon-tip">推荐 512×512 正方形图片 (PNG/JPG)</div>
-            <input
-              ref="iconInputRef"
-              type="file"
-              accept="image/png,image/jpeg,image/webp"
-              style="display: none;"
-              @change="onIconFileSelected"
-            />
-            <button class="btn btn-secondary btn-sm" @click="triggerSelectIcon">🖼️ 更换新图标</button>
-          </div>
-        </div>
-
-        <!-- 应用参数展示 (从 manifest.json 解析，只读) -->
-        <div class="form-grid-2">
-          <div class="form-group">
-            <label>应用名称</label>
-            <input
-              type="text"
-              class="form-control"
-              :value="modelValue.appName"
-              readonly
-            />
-          </div>
-          <div class="form-group">
-            <label>版本号</label>
-            <input
-              type="text"
-              class="form-control"
-              :value="modelValue.versionName"
-              readonly
-            />
-          </div>
-          <div class="form-group">
-            <label>应用包名</label>
-            <input
-              type="text"
-              class="form-control"
-              :value="modelValue.packageName"
-              readonly
-            />
-          </div>
-          <div class="form-group">
-            <label>uni-app AppID</label>
-            <input
-              type="text"
-              class="form-control"
-              :value="modelValue.appId"
-              readonly
-            />
-          </div>
+        <div class="picker-row">
+          <input
+            type="text"
+            class="form-control mono-input"
+            :value="modelValue.projectDir"
+            placeholder="点击右侧选择目录，或直接输入本地路径"
+            @input="updateField('projectDir', $event.target.value)"
+            @change="handleProjectChange"
+            @keydown.enter="handleProjectChange"
+          />
+          <button class="btn btn-secondary btn-browse" :disabled="isBrowsing" @click="handleBrowseDir">
+            <span>📁 {{ isBrowsing ? '打开中...' : '选择目录' }}</span>
+          </button>
         </div>
       </div>
 
-      <!-- 分块 2：Android 签名证书配置 -->
-      <div class="card config-block-card block-cert">
-        <div class="card-title">
-          <div class="cert-title-wrap">
-            <span>🔑 Android 签名证书</span>
-            <span :class="['badge', modelValue.isDefaultCert ? 'badge-ok' : 'badge-warn']">
-              {{ modelValue.isDefaultCert ? '默认调试证书' : '自定义发布证书' }}
-            </span>
-          </div>
-          <div class="cert-actions">
-            <button class="btn btn-secondary btn-sm" @click="handleSelectCert">📁 选择证书文件</button>
-          </div>
+      <!-- 应用桌面图标 -->
+      <div class="icon-section">
+        <div class="icon-avatar">
+          <img
+            v-if="iconPreviewUrl && !hasIconLoadError"
+            :src="iconPreviewUrl"
+            alt="App Icon"
+            @error="hasIconLoadError = true"
+            @load="hasIconLoadError = false"
+          />
+          <span v-else class="icon-fallback">📱</span>
         </div>
-
-        <div class="cert-active-file">
-          <span>当前生效文件:</span>
-          <code>{{ modelValue.storeFile || 'test.keystore' }}</code>
+        <div class="icon-meta">
+          <div class="icon-title-bar">
+            <span class="icon-title">应用桌面图标</span>
+            <span v-if="hasIconUpdated" class="icon-status-ok">✅ 已保存并同步</span>
+          </div>
+          <div class="icon-tip">推荐 512×512 正方形图片 (PNG/JPG)</div>
+          <input
+            ref="iconInputRef"
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            style="display: none;"
+            @change="onIconFileSelected"
+          />
+          <button class="btn btn-secondary btn-sm" @click="triggerSelectIcon">🖼️ 更换新图标</button>
         </div>
+      </div>
 
-        <div class="cert-inputs-grid">
-          <div class="form-group">
-            <label>证书密码</label>
-            <input
-              type="text"
-              class="form-control mono-input"
-              :value="modelValue.storePassword"
-              placeholder="如：123456 (失焦自动校验)"
-              @input="updateField('storePassword', $event.target.value)"
-              @blur="onPasswordBlurOrEnter"
-              @keydown.enter="onPasswordBlurOrEnter"
-            />
-          </div>
-          <div class="form-group">
-            <label>证书别名</label>
-            <input
-              type="text"
-              class="form-control mono-input"
-              :value="modelValue.keyAlias"
-              placeholder="自动提取或手动输入"
-              @input="updateField('keyAlias', $event.target.value)"
-              @keydown.enter="handleVerifyCert"
-            />
-          </div>
-          <div class="form-group">
-            <label>别名密码</label>
-            <input
-              type="text"
-              class="form-control mono-input"
-              :value="modelValue.keyPassword"
-              placeholder="如：123456"
-              @input="updateField('keyPassword', $event.target.value)"
-            />
-          </div>
+      <!-- 应用参数展示 (从 manifest.json 解析，只读) -->
+      <div class="form-grid-2">
+        <div class="form-group">
+          <label>应用名称</label>
+          <input
+            type="text"
+            class="form-control"
+            :value="modelValue.appName"
+            readonly
+          />
         </div>
-
-        <div class="cert-sha1-box">
-          <div class="cert-sha1-info">
-            <div class="cert-sha1-label">当前证书 SHA1 指纹：</div>
-            <div class="copyable cert-sha1-val" @click="handleCopy(modelValue.sha1)">
-              {{ modelValue.sha1 || '未提取/校验后生成' }}
-            </div>
-          </div>
-          <button class="btn btn-secondary btn-sm" :disabled="isVerifyingCert" @click="handleVerifyCert">
-            <span>⚡ {{ isVerifyingCert ? '校验中...' : '校验并保存' }}</span>
-          </button>
+        <div class="form-group">
+          <label>版本号</label>
+          <input
+            type="text"
+            class="form-control"
+            :value="modelValue.versionName"
+            readonly
+          />
+        </div>
+        <div class="form-group">
+          <label>应用包名</label>
+          <input
+            type="text"
+            class="form-control"
+            :value="modelValue.packageName"
+            readonly
+          />
+        </div>
+        <div class="form-group">
+          <label>uni-app AppID</label>
+          <input
+            type="text"
+            class="form-control"
+            :value="modelValue.appId"
+            readonly
+          />
         </div>
       </div>
     </div>
 
-    <!-- 分块 3：构建发行参数（通栏呈现） -->
-    <div class="card config-block-card block-publish">
+    <!-- 分块 2：Android 签名证书与发行参数 -->
+    <div class="card config-block-card block-cert">
       <div class="card-title">
-        <span>🚀 构建发行参数</span>
-        <button class="btn btn-secondary btn-save" :disabled="isSaving" @click="handleSave">
-          <span v-if="isSaving" class="spinner"></span>
-          <span>💾 {{ isSaving ? '保存中...' : '保存配置' }}</span>
-        </button>
+        <div class="cert-title-wrap">
+          <span>🔑 签名证书与构建参数</span>
+          <span :class="['badge', modelValue.isDefaultCert ? 'badge-ok' : 'badge-warn']">
+            {{ modelValue.isDefaultCert ? '默认调试' : '自定义发布' }}
+          </span>
+        </div>
+        <div class="cert-actions">
+          <button class="btn btn-secondary btn-sm" @click="handleSelectCert">📁 选择证书</button>
+          <button class="btn btn-secondary btn-sm btn-save" :disabled="isSaving" @click="handleSave">
+            <span v-if="isSaving" class="spinner"></span>
+            <span>💾 {{ isSaving ? '保存中...' : '保存配置' }}</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="cert-active-file">
+        <span>当前生效文件:</span>
+        <code>{{ modelValue.storeFile || 'test.keystore' }}</code>
+      </div>
+
+      <div class="cert-inputs-grid">
+        <div class="form-group">
+          <label>证书密码</label>
+          <input
+            type="text"
+            class="form-control mono-input"
+            :value="modelValue.storePassword"
+            placeholder="如：123456 (失焦自动校验)"
+            @input="updateField('storePassword', $event.target.value)"
+            @blur="onPasswordBlurOrEnter"
+            @keydown.enter="onPasswordBlurOrEnter"
+          />
+        </div>
+        <div class="form-group">
+          <label>证书别名</label>
+          <input
+            type="text"
+            class="form-control mono-input"
+            :value="modelValue.keyAlias"
+            placeholder="自动提取或手动输入"
+            @input="updateField('keyAlias', $event.target.value)"
+            @keydown.enter="handleVerifyCert"
+          />
+        </div>
+        <div class="form-group">
+          <label>别名密码</label>
+          <input
+            type="text"
+            class="form-control mono-input"
+            :value="modelValue.keyPassword"
+            placeholder="如：123456"
+            @input="updateField('keyPassword', $event.target.value)"
+          />
+        </div>
       </div>
 
       <div class="publish-inputs-grid">
@@ -186,7 +164,7 @@
             type="text"
             class="form-control mono-input"
             :value="modelValue.appKey"
-            placeholder="粘贴从 DCloud 开发者中心申请的离线 AppKey"
+            placeholder="粘贴从 DCloud 申请的离线 AppKey"
             @input="updateField('appKey', $event.target.value)"
           />
         </div>
@@ -201,6 +179,18 @@
             @input="updateField('apkName', $event.target.value)"
           />
         </div>
+      </div>
+
+      <div class="cert-sha1-box">
+        <div class="cert-sha1-info">
+          <div class="cert-sha1-label">当前证书 SHA1 指纹：</div>
+          <div class="copyable cert-sha1-val" @click="handleCopy(modelValue.sha1)">
+            {{ modelValue.sha1 || '未提取/校验后生成' }}
+          </div>
+        </div>
+        <button class="btn btn-secondary btn-sm" :disabled="isVerifyingCert" @click="handleVerifyCert">
+          <span>⚡ {{ isVerifyingCert ? '校验中...' : '校验' }}</span>
+        </button>
       </div>
     </div>
   </div>
@@ -331,23 +321,15 @@ function handleCopy(text) {
 
 <style lang="scss" scoped>
 .pack-config-container {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
   gap: 12px;
   width: 100%;
   min-width: 0;
+  align-items: stretch;
 
-  .blocks-top-row {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
-    gap: 12px;
-    width: 100%;
-    min-width: 0;
-    align-items: stretch;
-
-    @media (max-width: 860px) {
-      grid-template-columns: 1fr;
-    }
+  @media (max-width: 860px) {
+    grid-template-columns: 1fr;
   }
 
   .config-block-card {
@@ -488,6 +470,17 @@ function handleCopy(text) {
       gap: 8px;
     }
 
+    .cert-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+
+      .btn-save {
+        padding: 3px 10px;
+        font-size: 12px;
+      }
+    }
+
     .cert-active-file {
       font-size: 12px;
       color: var(--text-muted);
@@ -510,6 +503,17 @@ function handleCopy(text) {
     .cert-inputs-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-bottom: 10px;
+
+      @media (max-width: 600px) {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .publish-inputs-grid {
+      display: grid;
+      grid-template-columns: 1.1fr 1fr;
       gap: 8px;
       margin-bottom: 10px;
 
@@ -546,24 +550,6 @@ function handleCopy(text) {
           text-overflow: ellipsis;
           white-space: nowrap;
         }
-      }
-    }
-  }
-
-  .block-publish {
-    .btn-save {
-      padding: 4px 12px;
-      font-size: 12px;
-    }
-
-    .publish-inputs-grid {
-      display: grid;
-      grid-template-columns: 1.2fr 1fr;
-      gap: 12px;
-      align-items: center;
-
-      @media (max-width: 768px) {
-        grid-template-columns: 1fr;
       }
     }
   }
