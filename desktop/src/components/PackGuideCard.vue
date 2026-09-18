@@ -23,15 +23,15 @@
           <div class="guide-action-row">
             <button
               class="btn btn-secondary btn-sm"
-              @click="handleOpenUrl('https://mirrors.huaweicloud.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.10+7/OpenJDK17U-jdk_x64_windows_hotspot_17.0.10_7.msi')"
+              @click="handleOpenUrl('https://adoptium.net/temurin/releases/?version=17')"
             >
-              ⚡ 华为云国内高速镜像 (.msi 一键安装包)
+              🌐 Adoptium JDK 17 官方下载网页 ↗
             </button>
             <button
               class="btn btn-secondary btn-sm"
-              @click="handleOpenUrl('https://adoptium.net/temurin/releases/?version=17')"
+              @click="handleOpenUrl('https://mirrors.huaweicloud.com/adoptium/temurin17-binaries/')"
             >
-              🌐 Eclipse Adoptium 官方主页
+              ⚡ 华为云国内镜像下载网页 ↗
             </button>
           </div>
 

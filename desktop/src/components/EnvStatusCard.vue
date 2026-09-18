@@ -351,7 +351,7 @@ async function handleDownloadGradle() {
 }
 
 function handleDownloadJdk() {
-  openUrlApi('https://mirrors.huaweicloud.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.10+7/OpenJDK17U-jdk_x64_windows_hotspot_17.0.10_7.msi')
+  openUrlApi('https://adoptium.net/temurin/releases/?version=17')
 }
 
 function handleViewJdkGuide() {
