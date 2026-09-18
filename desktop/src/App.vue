@@ -24,9 +24,8 @@
             <span class="nav-label">{{ item.name }}</span>
             <span v-if="item.id === 'workbench' && isBuilding" class="nav-pulse" title="正在打包构建中"></span>
             <span
-              v-if="item.id === 'env' && !isEnvAllReady && !isLoadingEnv"
+              v-if="item.id === 'env' && hasEnvError"
               class="nav-badge-warn"
-              title="底层环境检测存在异常"
             >异常</span>
           </button>
         </nav>
@@ -125,6 +124,7 @@
                 :is-building="isBuilding"
                 :can-build="Boolean(packConfig.projectDir)"
                 @start-build="onStartBuild"
+                @clear="onClearLogs"
               />
 
               <!-- 打包成功/完成结果展示区 (红框区域) -->
@@ -308,6 +308,10 @@ const isEnvAllReady = computed(() => {
     envData?.gradle?.ok &&
     (envData?.aar?.files?.length ?? 0) > 0
   )
+})
+
+const hasEnvError = computed(() => {
+  return !isEnvAllReady.value
 })
 
 const currentProjectName = computed(() => {

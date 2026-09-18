@@ -6,6 +6,13 @@
       </div>
       <div class="title-actions">
         <button
+          class="btn btn-secondary btn-clear"
+          :disabled="isBuilding || !hasLogs"
+          @click="handleClear"
+        >
+          清空
+        </button>
+        <button
           class="btn btn-primary btn-build"
           :disabled="isBuilding || !canBuild"
           @click="handleStartBuild"
@@ -40,10 +47,15 @@ defineProps({
   }
 })
 
-const emit = defineEmits(['start-build'])
+const emit = defineEmits(['start-build', 'clear'])
 
 function handleStartBuild() {
   emit('start-build')
+}
+
+function handleClear() {
+  clearLog()
+  emit('clear')
 }
 
 const windowRef = ref(null)
@@ -125,7 +137,17 @@ defineExpose({
   }
 
   .title-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     flex-shrink: 0;
+
+    .btn-clear {
+      padding: 4px 10px;
+      font-size: 12px;
+      border-radius: 6px;
+      white-space: nowrap;
+    }
 
     .btn-build {
       padding: 4px 14px;
