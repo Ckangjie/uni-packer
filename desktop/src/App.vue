@@ -736,17 +736,6 @@ onUnmounted(() => {
             color: var(--sidebar-active-text);
             font-weight: 600;
             border-color: rgba(46, 160, 67, 0.3);
-
-            &::before {
-              content: '';
-              position: absolute;
-              left: 0;
-              top: 8px;
-              bottom: 8px;
-              width: 3px;
-              border-radius: 2px;
-              background: var(--primary);
-            }
           }
 
           .nav-pulse {
@@ -810,17 +799,6 @@ onUnmounted(() => {
           color: var(--sidebar-active-text);
           font-weight: 600;
           border-color: rgba(46, 160, 67, 0.3);
-
-          &::before {
-            content: '';
-            position: absolute;
-            left: 0;
-            top: 8px;
-            bottom: 8px;
-            width: 3px;
-            border-radius: 2px;
-            background: var(--primary);
-          }
         }
       }
     }
