@@ -17,10 +17,11 @@
     </div>
 
     <!-- 终端视口容器 -->
-    <div ref="terminalRef" class="terminal-window">
-      <div v-if="!hasLogs" class="empty-tip">
+    <div ref="windowRef" class="terminal-window">
+      <div v-show="!hasLogs" class="empty-tip">
         等待任务触发... 点击右上角「打包」即可查看实时流水线。
       </div>
+      <div ref="logsRef" class="terminal-logs"></div>
     </div>
   </div>
 </template>
@@ -45,7 +46,8 @@ function handleStartBuild() {
   emit('start-build')
 }
 
-const terminalRef = ref(null)
+const windowRef = ref(null)
+const logsRef = ref(null)
 const hasLogs = ref(false)
 
 // 高性能日志缓冲机制：每 80ms 或积压 400 条批量刷新一次
@@ -57,7 +59,7 @@ function flushLog() {
     clearTimeout(logTimer)
     logTimer = null
   }
-  if (!logBuf.length || !terminalRef.value) return
+  if (!logBuf.length || !logsRef.value) return
 
   const frag = document.createDocumentFragment()
   for (const item of logBuf) {
@@ -67,8 +69,10 @@ function flushLog() {
     frag.appendChild(span)
   }
   logBuf = []
-  terminalRef.value.appendChild(frag)
-  terminalRef.value.scrollTop = terminalRef.value.scrollHeight
+  logsRef.value.appendChild(frag)
+  if (windowRef.value) {
+    windowRef.value.scrollTop = windowRef.value.scrollHeight
+  }
   hasLogs.value = true
 }
 
@@ -89,14 +93,14 @@ function clearLog() {
     clearTimeout(logTimer)
     logTimer = null
   }
-  if (terminalRef.value) {
-    terminalRef.value.innerHTML = ''
+  if (logsRef.value) {
+    logsRef.value.innerHTML = ''
   }
   hasLogs.value = false
 }
 
 function getLogText() {
-  return terminalRef.value?.innerText ?? ''
+  return logsRef.value?.innerText ?? ''
 }
 
 defineExpose({
