@@ -25,9 +25,9 @@
             <span v-if="item.id === 'workbench' && isBuilding" class="nav-pulse" title="正在打包构建中"></span>
             <span
               v-if="item.id === 'env' && !isEnvAllReady && !isLoadingEnv"
-              class="nav-warn-dot"
-              title="部分底层环境未就绪"
-            ></span>
+              class="nav-badge-warn"
+              title="底层环境检测存在异常"
+            >异常</span>
           </button>
         </nav>
       </div>
@@ -817,11 +817,20 @@ onUnmounted(() => {
             animation: pulse 1.6s infinite;
           }
 
-          .nav-warn-dot {
-            width: 7px;
-            height: 7px;
-            border-radius: 50%;
+          .nav-badge-warn {
+            position: absolute;
+            top: 5px;
+            right: 8px;
             background: var(--danger);
+            color: #ffffff;
+            font-size: 10px;
+            font-weight: 600;
+            line-height: 1.2;
+            padding: 1px 6px;
+            border-radius: 8px;
+            box-shadow: 0 1px 4px rgba(248, 81, 73, 0.4);
+            pointer-events: none;
+            letter-spacing: 0.5px;
           }
         }
       }
