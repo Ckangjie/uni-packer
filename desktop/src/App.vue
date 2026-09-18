@@ -118,16 +118,33 @@
               />
             </div>
 
-            <!-- 右侧：实时终端构建流水线日志 (含一键打包按钮) -->
+            <!-- 右侧：实时终端构建流水线日志与底部产物结果展示 -->
             <div class="terminal-col">
               <LogTerminal
                 ref="terminalRef"
                 :is-building="isBuilding"
                 :can-build="Boolean(packConfig.projectDir)"
-                :result-info="buildResult"
                 @start-build="onStartBuild"
-                @open-dir="onOpenDistDir"
               />
+
+              <!-- 打包成功/完成结果展示区 (红框区域) -->
+              <div
+                v-if="buildResult"
+                :class="['card', 'build-result-card', buildResult.isSuccess ? 'success' : 'error']"
+              >
+                <div class="result-info">
+                  <span class="result-icon">{{ buildResult.isSuccess ? '🎉' : '❌' }}</span>
+                  <div class="result-content">
+                    <div class="result-title">{{ buildResult.isSuccess ? '打包成功！产物已就绪' : '打包失败' }}</div>
+                    <div class="result-msg" :title="buildResult.message">{{ buildResult.message }}</div>
+                  </div>
+                </div>
+                <div v-if="buildResult.isSuccess" class="result-actions">
+                  <button class="btn btn-primary btn-sm" @click="onOpenDistDir()">
+                    📂 打开所在目录
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </section>
@@ -906,6 +923,77 @@ onUnmounted(() => {
             @media (max-width: 1100px) {
               grid-template-columns: 1fr;
             }
+
+            .terminal-col {
+              display: flex;
+              flex-direction: column;
+              gap: 12px;
+
+              .build-result-card {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 12px 16px;
+                gap: 14px;
+                border-radius: 8px;
+                animation: fadeIn 0.3s ease;
+
+                &.success {
+                  background: rgba(22, 38, 27, 0.7);
+                  border: 1px solid rgba(46, 160, 67, 0.45);
+
+                  .result-title {
+                    color: #3fb950;
+                  }
+                }
+
+                &.error {
+                  background: rgba(43, 20, 22, 0.7);
+                  border: 1px solid rgba(248, 81, 73, 0.45);
+
+                  .result-title {
+                    color: #f85149;
+                  }
+                }
+
+                .result-info {
+                  display: flex;
+                  align-items: center;
+                  gap: 10px;
+                  min-width: 0;
+                  flex: 1;
+
+                  .result-icon {
+                    font-size: 20px;
+                    line-height: 1;
+                  }
+
+                  .result-content {
+                    min-width: 0;
+                    flex: 1;
+
+                    .result-title {
+                      font-size: 13px;
+                      font-weight: 600;
+                    }
+
+                    .result-msg {
+                      font-size: 11px;
+                      color: var(--text-muted);
+                      font-family: monospace;
+                      overflow: hidden;
+                      text-overflow: ellipsis;
+                      white-space: nowrap;
+                      margin-top: 2px;
+                    }
+                  }
+                }
+
+                .result-actions {
+                  flex-shrink: 0;
+                }
+              }
+            }
           }
         }
 
@@ -998,6 +1086,17 @@ onUnmounted(() => {
   }
   100% {
     box-shadow: 0 0 0 0 rgba(210, 153, 34, 0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 </style>
