@@ -18,15 +18,14 @@
           <button
             v-if="!isJdkReady"
             class="btn-action-xs btn-jdk-download"
-            title="通过系统默认浏览器打开华为云高速镜像下载 (.msi 一键安装包)"
+            title="通过系统默认浏览器打开 Adoptium JDK 17 官方下载网页"
             @click="handleDownloadJdk"
           >
             🌐 下载 JDK
           </button>
           <button
-            v-if="!isJdkReady"
             class="btn-action-xs btn-action-guide"
-            title="查看 JDK 17 安装与环境变量配置图文指引"
+            title="查看 JDK 17 安装、下载通道与环境变量配置图文指引"
             @click="handleViewJdkGuide"
           >
             📖 配置文档
