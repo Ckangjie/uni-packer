@@ -12,7 +12,7 @@
           </div>
         </div>
 
-        <!-- 导航菜单列表 -->
+        <!-- 导航菜单列表 (日志已整合至打包构建主工作台) -->
         <nav class="sidebar-menu">
           <button
             v-for="item in navTabs"
@@ -22,7 +22,7 @@
           >
             <span class="nav-icon">{{ item.icon }}</span>
             <span class="nav-label">{{ item.name }}</span>
-            <span v-if="item.id === 'logs' && isBuilding" class="nav-pulse" title="正在打包中"></span>
+            <span v-if="item.id === 'workbench' && isBuilding" class="nav-pulse" title="正在打包构建中"></span>
             <span
               v-if="item.id === 'env' && !isEnvAllReady && !isLoadingEnv"
               class="nav-warn-dot"
@@ -58,6 +58,15 @@
             <span class="pill-name">{{ currentProjectName }}</span>
           </div>
 
+          <!-- 打包构建页快捷操作：打开产物目录 -->
+          <button
+            v-if="currentTab === 'workbench' && packConfig.projectDir"
+            class="btn btn-secondary btn-sm"
+            @click="onOpenDistDir()"
+          >
+            <span>📂 打开产物目录</span>
+          </button>
+
           <!-- 环境检测页操作：刷新 -->
           <button
             v-if="currentTab === 'env'"
@@ -68,40 +77,48 @@
             <span v-if="isLoadingEnv" class="spinner"></span>
             <span>🔄 刷新环境</span>
           </button>
-
-          <!-- 终端日志页操作：打开产物目录 -->
-          <button
-            v-if="currentTab === 'logs' && packConfig.projectDir"
-            class="btn btn-secondary btn-sm"
-            @click="onOpenDistDir()"
-          >
-            <span>📂 打开产物目录</span>
-          </button>
         </div>
       </header>
 
       <!-- 页面主体容器 (v-show 保持已有输入状态与终端日志输出) -->
       <div class="main-body">
-        <!-- 1. 打包构建 -->
-        <section v-show="currentTab === 'workbench'" class="tab-pane">
-          <PackConfigCard
-            v-model="packConfig"
-            :icon-preview-url="iconPreviewUrl"
-            :has-icon-updated="hasIconUpdated"
-            :is-building="isBuilding"
-            :is-saving="isSavingConfig"
-            :is-browsing="isBrowsingDir"
-            :is-verifying-cert="isVerifyingCert"
-            @browse-dir="onBrowseDir"
-            @switch-project="onSwitchProject"
-            @save="onSaveConfig"
-            @start-build="onStartBuild"
-            @verify-cert="onVerifyCert"
-            @reset-cert="onResetCert"
-            @select-cert="onSelectCert"
-            @upload-icon="onUploadIcon"
-            @copy="onCopyText"
-          />
+        <!-- 1. 打包构建 + 实时日志 (双列一体化工作台) -->
+        <section v-show="currentTab === 'workbench'" class="tab-pane tab-workbench">
+          <div class="workbench-grid">
+            <!-- 左侧：应用打包参数与操作 -->
+            <div class="config-col">
+              <PackConfigCard
+                v-model="packConfig"
+                :icon-preview-url="iconPreviewUrl"
+                :has-icon-updated="hasIconUpdated"
+                :is-building="isBuilding"
+                :is-saving="isSavingConfig"
+                :is-browsing="isBrowsingDir"
+                :is-verifying-cert="isVerifyingCert"
+                @browse-dir="onBrowseDir"
+                @switch-project="onSwitchProject"
+                @save="onSaveConfig"
+                @start-build="onStartBuild"
+                @verify-cert="onVerifyCert"
+                @reset-cert="onResetCert"
+                @select-cert="onSelectCert"
+                @upload-icon="onUploadIcon"
+                @copy="onCopyText"
+              />
+            </div>
+
+            <!-- 右侧：实时终端构建流水线日志 -->
+            <div class="terminal-col">
+              <LogTerminal
+                ref="terminalRef"
+                :is-building="isBuilding"
+                :result-info="buildResult"
+                @clear="onClearLogs"
+                @copy="onCopyText"
+                @open-dir="onOpenDistDir"
+              />
+            </div>
+          </div>
         </section>
 
         <!-- 2. 底层环境检测 -->
@@ -113,19 +130,7 @@
           />
         </section>
 
-        <!-- 3. 构建终端日志 -->
-        <section v-show="currentTab === 'logs'" class="tab-pane tab-logs">
-          <LogTerminal
-            ref="terminalRef"
-            :is-building="isBuilding"
-            :result-info="buildResult"
-            @clear="onClearLogs"
-            @copy="onCopyText"
-            @open-dir="onOpenDistDir"
-          />
-        </section>
-
-        <!-- 4. 配置与环境指南 -->
+        <!-- 3. 配置与环境指南 -->
         <section v-show="currentTab === 'guide'" class="tab-pane">
           <PackGuideCard @copy="onCopyText" />
         </section>
@@ -160,11 +165,10 @@ import {
   listenBuildDone
 } from '@/api/workbench.js'
 
-// 模块标签定义
+// 模块标签定义 (构建与日志合并为同一工作台)
 const navTabs = [
-  { id: 'workbench', name: '打包构建', icon: '📦', desc: '工程参数配置与一键离线构建' },
+  { id: 'workbench', name: '打包构建', icon: '📦', desc: '工程配置与实时构建流水线一体化控制台' },
   { id: 'env', name: '环境检测', icon: '⚡', desc: 'Android SDK 与底层运行依赖完备度' },
-  { id: 'logs', name: '终端日志', icon: '📜', desc: 'Gradle 实时构建流水线输出与排查' },
   { id: 'guide', name: '配置指南', icon: '💡', desc: '官方离线打包规范与配置对照' }
 ]
 
@@ -509,9 +513,6 @@ async function onStartBuild() {
   isBuilding.value = true
   buildResult.value = null
 
-  // 触发打包后自动切换至终端日志页
-  currentTab.value = 'logs'
-
   terminalRef.value?.clearLog()
   terminalRef.value?.appendLog('🚀 启动本地纯原生离线打包流水线...\n', 'info')
 
@@ -828,8 +829,19 @@ onUnmounted(() => {
         max-width: 1280px;
         margin: 0 auto;
 
-        &.tab-logs {
+        &.tab-workbench {
           max-width: 100%;
+
+          .workbench-grid {
+            display: grid;
+            grid-template-columns: minmax(440px, 500px) 1fr;
+            gap: 16px;
+            align-items: start;
+
+            @media (max-width: 1100px) {
+              grid-template-columns: 1fr;
+            }
+          }
         }
       }
     }
