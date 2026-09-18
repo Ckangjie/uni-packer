@@ -82,7 +82,16 @@
 
       <!-- 页面主体容器 (v-show 保持已有输入状态与终端日志输出) -->
       <div class="main-body">
-        <!-- 1. 打包构建 + 实时日志 (双列一体化工作台) -->
+        <!-- 1. 底层环境检测 -->
+        <section v-show="currentTab === 'env'" class="tab-pane">
+          <EnvStatusCard
+            :env-data="envData"
+            :is-loading="isLoadingEnv"
+            @copy="onCopyText"
+          />
+        </section>
+
+        <!-- 2. 打包构建 + 实时日志 (双列一体化工作台) -->
         <section v-show="currentTab === 'workbench'" class="tab-pane tab-workbench">
           <div class="workbench-grid">
             <!-- 左侧：应用打包参数与操作 -->
@@ -121,15 +130,6 @@
           </div>
         </section>
 
-        <!-- 2. 底层环境检测 -->
-        <section v-show="currentTab === 'env'" class="tab-pane">
-          <EnvStatusCard
-            :env-data="envData"
-            :is-loading="isLoadingEnv"
-            @copy="onCopyText"
-          />
-        </section>
-
         <!-- 3. 配置与环境指南 -->
         <section v-show="currentTab === 'guide'" class="tab-pane">
           <PackGuideCard @copy="onCopyText" />
@@ -165,14 +165,14 @@ import {
   listenBuildDone
 } from '@/api/workbench.js'
 
-// 模块标签定义 (构建与日志合并为同一工作台)
+// 模块标签定义 (环境检测排在首位，构建与日志为工作台)
 const navTabs = [
-  { id: 'workbench', name: '打包构建', icon: '📦', desc: '工程配置与实时构建流水线一体化控制台' },
   { id: 'env', name: '环境检测', icon: '⚡', desc: 'Android SDK 与底层运行依赖完备度' },
+  { id: 'workbench', name: '打包构建', icon: '📦', desc: '工程配置与实时构建流水线一体化控制台' },
   { id: 'guide', name: '配置指南', icon: '💡', desc: '官方离线打包规范与配置对照' }
 ]
 
-const currentTab = ref('workbench')
+const currentTab = ref('env')
 const isLoadingEnv = ref(false)
 const isBuilding = ref(false)
 const isSavingConfig = ref(false)
