@@ -194,17 +194,6 @@
       />
     </div>
 
-    <!-- 打包动作按钮 -->
-    <div class="build-action-row">
-      <button
-        class="btn btn-primary btn-lg"
-        :disabled="isBuilding || !modelValue.projectDir"
-        @click="handleStartBuild"
-      >
-        <span v-if="isBuilding" class="spinner"></span>
-        <span>{{ isBuilding ? '正在离线打包构建中...' : '🚀 一键开始离线打包' }}</span>
-      </button>
-    </div>
   </div>
 </template>
 

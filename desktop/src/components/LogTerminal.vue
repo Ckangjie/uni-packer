@@ -8,6 +8,16 @@
           <span>打包构建中...</span>
         </span>
       </div>
+      <div class="title-actions">
+        <button
+          class="btn btn-primary btn-build"
+          :disabled="isBuilding || !canBuild"
+          @click="handleStartBuild"
+        >
+          <span v-if="isBuilding" class="spinner"></span>
+          <span>{{ isBuilding ? '正在离线打包中...' : '🚀 一键开始离线打包' }}</span>
+        </button>
+      </div>
     </div>
 
     <!-- 终端视口容器 (固定尺寸，绝不影响外层布局) -->
@@ -15,7 +25,7 @@
       <!-- 终端视口：使用 ref 容器支持批处理插入 -->
       <div ref="terminalRef" class="terminal-window">
         <div v-if="!hasLogs" class="empty-tip">
-          等待任务触发... 选择目标 uni-app 工程后点击「🚀 一键开始离线打包」即可查看实时流水线。
+          等待任务触发... 点击右上角「🚀 一键开始离线打包」即可查看实时流水线。
         </div>
       </div>
 
@@ -61,13 +71,21 @@ const props = defineProps({
     type: Boolean,
     default: false
   },
+  canBuild: {
+    type: Boolean,
+    default: false
+  },
   resultInfo: {
     type: Object,
     default: null
   }
 })
 
-const emit = defineEmits(['open-dir'])
+const emit = defineEmits(['open-dir', 'start-build'])
+
+function handleStartBuild() {
+  emit('start-build')
+}
 
 const terminalRef = ref(null)
 const hasLogs = ref(false)
@@ -149,6 +167,15 @@ defineExpose({
     display: flex;
     align-items: center;
     gap: 8px;
+  }
+
+  .title-actions {
+    .btn-build {
+      padding: 4px 14px;
+      font-size: 12px;
+      font-weight: 600;
+      border-radius: 6px;
+    }
   }
 
   .btn-sm {

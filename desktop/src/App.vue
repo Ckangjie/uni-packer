@@ -118,14 +118,14 @@
               />
             </div>
 
-            <!-- 右侧：实时终端构建流水线日志 -->
+            <!-- 右侧：实时终端构建流水线日志 (含一键打包按钮) -->
             <div class="terminal-col">
               <LogTerminal
                 ref="terminalRef"
                 :is-building="isBuilding"
+                :can-build="Boolean(packConfig.projectDir)"
                 :result-info="buildResult"
-                @clear="onClearLogs"
-                @copy="onCopyText"
+                @start-build="onStartBuild"
                 @open-dir="onOpenDistDir"
               />
             </div>
