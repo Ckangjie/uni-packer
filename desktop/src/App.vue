@@ -12,10 +12,10 @@
           </div>
         </div>
 
-        <!-- 导航菜单列表 (日志已整合至打包构建主工作台) -->
+        <!-- 导航菜单列表 -->
         <nav class="sidebar-menu">
           <button
-            v-for="item in navTabs"
+            v-for="item in mainNavTabs"
             :key="item.id"
             :class="['nav-item', { active: currentTab === item.id }]"
             @click="switchTab(item.id)"
@@ -32,13 +32,15 @@
         </nav>
       </div>
 
-      <!-- 侧边栏底部状态 -->
+      <!-- 侧边栏底部设置按钮 -->
       <div class="sidebar-footer">
-        <div class="env-status-pill" @click="switchTab('env')" title="点击查看环境详情">
-          <span :class="['status-dot', isEnvAllReady ? 'dot-ok' : 'dot-warn']"></span>
-          <span class="status-label">{{ envStatusText }}</span>
-        </div>
-        <div class="app-version">Desktop v1.0.0</div>
+        <button
+          :class="['nav-item', 'settings-btn', { active: currentTab === 'settings' }]"
+          @click="switchTab('settings')"
+        >
+          <span class="nav-icon">⚙️</span>
+          <span class="nav-label">设置</span>
+        </button>
       </div>
     </aside>
 
@@ -134,6 +136,59 @@
         <section v-show="currentTab === 'guide'" class="tab-pane">
           <PackGuideCard @copy="onCopyText" />
         </section>
+
+        <!-- 4. 系统设置 -->
+        <section v-show="currentTab === 'settings'" class="tab-pane tab-settings">
+          <div class="card settings-card">
+            <div class="card-title">
+              <span>⚙️ 工作台首选项</span>
+            </div>
+
+            <div class="settings-group">
+              <div class="settings-item">
+                <div class="settings-meta">
+                  <div class="settings-title">项目历史记忆</div>
+                  <div class="settings-desc">清除最近一次载入的 uni-app 工程路径记忆</div>
+                </div>
+                <button class="btn btn-secondary btn-sm" @click="onClearCache">
+                  🧹 清除缓存
+                </button>
+              </div>
+
+              <div class="settings-item">
+                <div class="settings-meta">
+                  <div class="settings-title">底层环境探测</div>
+                  <div class="settings-desc">重新检查系统 JDK、Android SDK、Gradle 与 AAR</div>
+                </div>
+                <button class="btn btn-secondary btn-sm" :disabled="isLoadingEnv" @click="loadEnvData">
+                  <span v-if="isLoadingEnv" class="spinner"></span>
+                  <span>🔄 重新检测</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="card settings-card" style="margin-top: 16px;">
+            <div class="card-title">
+              <span>ℹ️ 关于工作台</span>
+            </div>
+
+            <div class="about-grid">
+              <div class="about-item">
+                <span class="about-label">客户端版本</span>
+                <span class="about-val">Desktop v1.0.0 (Portable)</span>
+              </div>
+              <div class="about-item">
+                <span class="about-label">技术架构</span>
+                <span class="about-val">Electron 31 + Vue 3 + Vite 5</span>
+              </div>
+              <div class="about-item">
+                <span class="about-label">构建目标</span>
+                <span class="about-val">Android 离线打包 (免 Android Studio)</span>
+              </div>
+            </div>
+          </div>
+        </section>
       </div>
 
       <!-- 轻量 Toast 提示 -->
@@ -165,12 +220,17 @@ import {
   listenBuildDone
 } from '@/api/workbench.js'
 
-// 模块标签定义 (环境检测排在首位，构建与日志为工作台)
-const navTabs = [
+// 主导航菜单列表
+const mainNavTabs = [
   { id: 'env', name: '环境检测', icon: '⚡', desc: 'Android SDK 与底层运行依赖完备度' },
   { id: 'workbench', name: '打包构建', icon: '📦', desc: '工程配置与实时构建流水线一体化控制台' },
   { id: 'guide', name: '配置指南', icon: '💡', desc: '官方离线打包规范与配置对照' }
 ]
+
+// 底部设置模块定义
+const settingsTab = { id: 'settings', name: '系统设置', icon: '⚙️', desc: '工作台首选项与环境缓存管理' }
+
+const allTabs = [...mainNavTabs, settingsTab]
 
 const currentTab = ref('env')
 const isLoadingEnv = ref(false)
@@ -218,7 +278,7 @@ const buildResult = ref(null)
 
 // 派生状态计算
 const activeTabInfo = computed(() => {
-  return navTabs.find((tab) => tab.id === currentTab.value) ?? navTabs[0]
+  return allTabs.find((tab) => tab.id === currentTab.value) ?? allTabs[0]
 })
 
 const isEnvAllReady = computed(() => {
@@ -232,11 +292,6 @@ const isEnvAllReady = computed(() => {
     envData?.gradle?.ok &&
     (envData?.aar?.files?.length ?? 0) > 0
   )
-})
-
-const envStatusText = computed(() => {
-  if (isLoadingEnv.value) return '检测中...'
-  return isEnvAllReady.value ? '核心环境就绪' : '部分环境缺失'
 })
 
 const currentProjectName = computed(() => {
@@ -258,6 +313,17 @@ function showToast(msg) {
   toastTimer = setTimeout(() => {
     toastMessage.value = ''
   }, 2200)
+}
+
+function onClearCache() {
+  localStorage.removeItem('uni_pack_project_dir')
+  packConfig.projectDir = ''
+  packConfig.appName = ''
+  packConfig.packageName = ''
+  packConfig.versionName = ''
+  packConfig.appId = ''
+  iconPreviewUrl.value = ''
+  showToast('🧹 已清除工作台历史项目记忆')
 }
 
 async function onCopyText(text) {
@@ -453,10 +519,10 @@ async function onSelectCert() {
 async function onVerifyCert() {
   if (isVerifyingCert.value) return
   if (!packConfig.storePassword?.trim()) {
-    return showToast('⚠️ 请输入证书密码 (Store Password)')
+    return showToast('⚠️ 请输入证书密码')
   }
   if (!packConfig.keyAlias?.trim()) {
-    return showToast('⚠️ 请输入证书别名 (Key Alias)')
+    return showToast('⚠️ 请输入证书别名')
   }
 
   isVerifyingCert.value = true
@@ -705,51 +771,57 @@ onUnmounted(() => {
     .sidebar-footer {
       display: flex;
       flex-direction: column;
-      gap: 10px;
       padding-top: 12px;
       border-top: 1px solid var(--sidebar-border);
 
-      .env-status-pill {
+      .settings-btn {
+        position: relative;
         display: flex;
         align-items: center;
-        gap: 8px;
-        padding: 6px 10px;
-        background: rgba(255, 255, 255, 0.03);
-        border: 1px solid var(--card-border);
-        border-radius: 6px;
+        gap: 10px;
+        width: 100%;
+        padding: 10px 14px;
+        border-radius: 8px;
+        border: 1px solid transparent;
+        background: transparent;
+        color: var(--text);
+        font-size: 13px;
+        font-weight: 500;
         cursor: pointer;
-        transition: background 0.2s ease;
+        transition: all 0.2s ease;
+        text-align: left;
+
+        .nav-icon {
+          font-size: 16px;
+          line-height: 1;
+        }
+
+        .nav-label {
+          flex: 1;
+        }
 
         &:hover {
-          background: rgba(255, 255, 255, 0.07);
+          background: var(--sidebar-hover);
+          color: var(--text-bright);
         }
 
-        .status-dot {
-          width: 8px;
-          height: 8px;
-          border-radius: 50%;
+        &.active {
+          background: var(--sidebar-active-bg);
+          color: var(--sidebar-active-text);
+          font-weight: 600;
+          border-color: rgba(46, 160, 67, 0.3);
 
-          &.dot-ok {
-            background: #3fb950;
-            box-shadow: 0 0 6px rgba(63, 185, 80, 0.6);
+          &::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 8px;
+            bottom: 8px;
+            width: 3px;
+            border-radius: 2px;
+            background: var(--primary);
           }
-
-          &.dot-warn {
-            background: #f85149;
-            box-shadow: 0 0 6px rgba(248, 81, 73, 0.6);
-          }
         }
-
-        .status-label {
-          font-size: 11px;
-          color: var(--text-muted);
-        }
-      }
-
-      .app-version {
-        font-size: 11px;
-        color: var(--text-muted);
-        text-align: center;
       }
     }
   }
@@ -840,6 +912,67 @@ onUnmounted(() => {
 
             @media (max-width: 1100px) {
               grid-template-columns: 1fr;
+            }
+          }
+        }
+
+        &.tab-settings {
+          max-width: 800px;
+
+          .settings-card {
+            .settings-group {
+              display: flex;
+              flex-direction: column;
+              gap: 10px;
+
+              .settings-item {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 12px 14px;
+                background: rgba(255, 255, 255, 0.02);
+                border: 1px solid var(--card-border);
+                border-radius: 8px;
+
+                .settings-meta {
+                  .settings-title {
+                    font-size: 13px;
+                    color: var(--text-bright);
+                    font-weight: 500;
+                  }
+
+                  .settings-desc {
+                    font-size: 12px;
+                    color: var(--text-muted);
+                    margin-top: 2px;
+                  }
+                }
+              }
+            }
+
+            .about-grid {
+              display: flex;
+              flex-direction: column;
+              gap: 8px;
+
+              .about-item {
+                display: flex;
+                justify-content: space-between;
+                padding: 8px 12px;
+                background: rgba(255, 255, 255, 0.02);
+                border: 1px solid var(--card-border);
+                border-radius: 6px;
+                font-size: 12px;
+
+                .about-label {
+                  color: var(--text-muted);
+                }
+
+                .about-val {
+                  color: var(--text-bright);
+                  font-family: monospace;
+                }
+              }
             }
           }
         }
