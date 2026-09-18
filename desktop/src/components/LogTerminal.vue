@@ -137,7 +137,7 @@ defineExpose({
 
 <style lang="scss" scoped>
 .log-terminal-card {
-  margin-top: 18px;
+  margin-top: 0;
 
   .title-left {
     display: flex;
