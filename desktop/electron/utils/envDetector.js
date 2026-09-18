@@ -237,10 +237,15 @@ function detectAndroidSdk(shellDir = '') {
     }
   }
 
+  const defaultInstallPath = IS_WIN
+    ? (process.env['LOCALAPPDATA'] ? path.join(process.env['LOCALAPPDATA'], 'Android\\Sdk') : 'C:\\Android\\Sdk')
+    : path.join(process.env.HOME || '', 'Android/Sdk');
+
   return {
     ok: false,
-    path: '',
-    error: '未检测到 Android SDK。请配置 ANDROID_HOME 或在 Android Studio 中安装',
+    isMissing: true,
+    path: path.normalize(defaultInstallPath),
+    error: '未检测到 Android SDK。可一键补全基础打包套件',
   };
 }
 
@@ -310,17 +315,17 @@ function detectGradle(shellDir = '') {
     const wrapperBat = path.join(shellDir, 'gradlew.bat');
     const wrapperSh = path.join(shellDir, 'gradlew');
     if (IS_WIN && fs.existsSync(wrapperBat)) {
-      return { ok: true, path: path.normalize(wrapperBat), isWrapper: true };
+      return { ok: true, isMissing: false, path: path.normalize(wrapperBat), isWrapper: true };
     }
     if (!IS_WIN && fs.existsSync(wrapperSh)) {
-      return { ok: true, path: path.normalize(wrapperSh), isWrapper: true };
+      return { ok: true, isMissing: false, path: path.normalize(wrapperSh), isWrapper: true };
     }
   }
 
   if (process.env.GRADLE_HOME) {
     const gradleBin = path.join(process.env.GRADLE_HOME, IS_WIN ? 'bin/gradle.bat' : 'bin/gradle');
     if (fs.existsSync(gradleBin)) {
-      return { ok: true, path: path.normalize(gradleBin), isWrapper: false };
+      return { ok: true, isMissing: false, path: path.normalize(gradleBin), isWrapper: false };
     }
   }
 
@@ -329,15 +334,16 @@ function detectGradle(shellDir = '') {
   if (sysGradle) {
     const first = sysGradle.split(/\r?\n/)[0].trim();
     if (fs.existsSync(first)) {
-      return { ok: true, path: path.normalize(first), isWrapper: false };
+      return { ok: true, isMissing: false, path: path.normalize(first), isWrapper: false };
     }
   }
 
   return {
     ok: false,
+    isMissing: true,
     path: '',
     isWrapper: false,
-    error: '未找到 Gradle。壳工程未包含 gradlew 且系统未安装 gradle',
+    error: '未找到 Gradle。壳工程未包含 gradlew 且系统未安装 gradle，可一键补全',
   };
 }
 
@@ -346,24 +352,27 @@ function detectGradle(shellDir = '') {
  */
 function detectAar(shellDir = '') {
   if (!shellDir || !fs.existsSync(shellDir)) {
-    return { ok: false, files: [], count: 0, path: '' };
+    return { ok: false, isMissing: true, files: [], count: 0, path: '' };
   }
 
   const libsDir = path.join(shellDir, 'app/libs');
   if (!fs.existsSync(libsDir)) {
-    return { ok: false, files: [], count: 0, path: libsDir };
+    return { ok: false, isMissing: true, files: [], count: 0, path: libsDir };
   }
 
   try {
     const files = fs.readdirSync(libsDir).filter((f) => f.endsWith('.aar') || f.endsWith('.jar'));
+    const hasCore = files.some((f) => f.includes('uniapp-') || f.includes('5plus'));
+    const isOk = files.length > 0 && hasCore;
     return {
-      ok: files.length > 0,
+      ok: isOk,
+      isMissing: !isOk,
       files,
       count: files.length,
       path: path.normalize(libsDir),
     };
   } catch (e) {
-    return { ok: false, files: [], count: 0, path: libsDir };
+    return { ok: false, isMissing: true, files: [], count: 0, path: libsDir };
   }
 }
 
@@ -408,7 +417,7 @@ function detectAllEnv(workbenchDir = process.cwd()) {
     syncLocalProperties(shellDir, sdk.path);
   }
 
-  const overallOk = Boolean(jdk.ok && sdk.ok && shell.ok && gradle.ok);
+  const overallOk = Boolean(jdk.ok && sdk.ok && shell.ok && gradle.ok && aar.ok);
 
   return {
     overallOk,

@@ -159,3 +159,78 @@ export function listenBuildDone(callback) {
     callback?.(event.payload)
   })
 }
+
+/**
+ * 触发远程下载并补全 DCloud 基座核心 AAR
+ * @param {object} payload { url }
+ * @returns {Promise<any>}
+ */
+export async function downloadAarLibsApi(payload = {}) {
+  try {
+    return await bridge.invoke('download_aar_libs', payload)
+  } catch (err) {
+    console.error('下载 AAR 失败:', err)
+    throw err
+  }
+}
+
+/**
+ * 监听 AAR 下载与解压实时进度
+ * @param {function} callback
+ * @returns {Promise<function>}
+ */
+export function listenAarProgress(callback) {
+  return bridge.listen('aar_download_progress', (event) => {
+    callback?.(event.payload)
+  })
+}
+
+/**
+ * 触发远程下载并补全 Android SDK MVP 基础套件
+ * @param {object} payload { url, targetDir }
+ * @returns {Promise<any>}
+ */
+export async function downloadAndroidSdkApi(payload = {}) {
+  try {
+    return await bridge.invoke('download_android_sdk', payload)
+  } catch (err) {
+    console.error('下载 Android SDK 失败:', err)
+    throw err
+  }
+}
+
+/**
+ * 监听 Android SDK 下载与解压实时进度
+ * @param {function} callback
+ * @returns {Promise<function>}
+ */
+export function listenSdkProgress(callback) {
+  return bridge.listen('sdk_download_progress', (event) => {
+    callback?.(event.payload)
+  })
+}
+
+/**
+ * 触发远程下载或配置 Gradle Wrapper 极速镜像
+ * @param {object} payload
+ * @returns {Promise<any>}
+ */
+export async function downloadGradleWrapperApi(payload = {}) {
+  try {
+    return await bridge.invoke('download_gradle_wrapper', payload)
+  } catch (err) {
+    console.error('配置/补全 Gradle 失败:', err)
+    throw err
+  }
+}
+
+/**
+ * 监听 Gradle 补全与预热实时进度
+ * @param {function} callback
+ * @returns {Promise<function>}
+ */
+export function listenGradleProgress(callback) {
+  return bridge.listen('gradle_download_progress', (event) => {
+    callback?.(event.payload)
+  })
+}

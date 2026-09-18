@@ -812,6 +812,7 @@ function registerIpcHandlers() {
         },
         sdk: {
           ok: Boolean(env.sdk.ok),
+          isMissing: Boolean(env.sdk.isMissing),
           path: env.sdk.path || '未检测到',
           error: env.sdk.error || '',
         },
@@ -822,12 +823,14 @@ function registerIpcHandlers() {
         },
         gradle: {
           ok: Boolean(env.gradle.ok),
+          isMissing: Boolean(env.gradle.isMissing),
           path: env.gradle.path || '未检测到',
           isWrapper: Boolean(env.gradle.isWrapper),
           error: env.gradle.error || '',
         },
         aar: {
           ok: Boolean(env.aar.ok),
+          isMissing: Boolean(env.aar.isMissing),
           files: env.aar.files || [],
           count: env.aar.count || 0,
           path: env.aar.path || '',
@@ -1253,6 +1256,430 @@ function registerIpcHandlers() {
       event.sender.send('build-done', { success: false, message: err.message });
     }
   });
+
+  ipcMain.handle('download_aar_libs', async (event, args) => {
+    try {
+      const shellDir = SHELL_DIR || detectShellDir(WORKSPACE_DIR).path;
+      if (!shellDir) {
+        throw new Error('未检测到 Android 宿主壳工程目录');
+      }
+
+      const libsDir = path.join(shellDir, 'app/libs');
+      if (!fs.existsSync(libsDir)) {
+        fs.mkdirSync(libsDir, { recursive: true });
+      }
+
+      const downloadUrl = (args?.url || '').trim() || DEFAULT_AAR_DOWNLOAD_URL;
+      const tempZipPath = path.join(app.getPath('temp'), `dcloud_aar_${Date.now()}.zip`);
+      const tempExtractDir = path.join(app.getPath('temp'), `dcloud_aar_ext_${Date.now()}`);
+
+      event.sender.send('aar_download_progress', {
+        stage: 'downloading',
+        percent: 0,
+        text: '正在连接 DCloud 核心库下载源...',
+      });
+
+      await downloadFileWithProgress(downloadUrl, tempZipPath, ({ receivedBytes, totalBytes, percent }) => {
+        const receivedMb = (receivedBytes / 1024 / 1024).toFixed(1);
+        const totalMb = totalBytes ? (totalBytes / 1024 / 1024).toFixed(1) : '?';
+        event.sender.send('aar_download_progress', {
+          stage: 'downloading',
+          percent,
+          text: `下载中 ${percent}% (${receivedMb}MB / ${totalMb}MB)`,
+        });
+      });
+
+      event.sender.send('aar_download_progress', {
+        stage: 'extracting',
+        percent: 100,
+        text: '下载完成，正在解压并写入 app/libs...',
+      });
+
+      fs.mkdirSync(tempExtractDir, { recursive: true });
+      extractZip(tempZipPath, tempExtractDir);
+
+      let aarFoundCount = 0;
+      function scanAndCopy(currentDir) {
+        if (!fs.existsSync(currentDir)) return;
+        const entries = fs.readdirSync(currentDir, { withFileTypes: true });
+        for (const entry of entries) {
+          const fullPath = path.join(currentDir, entry.name);
+          if (entry.isDirectory()) {
+            scanAndCopy(fullPath);
+          } else if (entry.isFile() && (entry.name.endsWith('.aar') || entry.name.endsWith('.jar'))) {
+            const destPath = path.join(libsDir, entry.name);
+            fs.copyFileSync(fullPath, destPath);
+            aarFoundCount++;
+          }
+        }
+      }
+
+      scanAndCopy(tempExtractDir);
+
+      try {
+        if (fs.existsSync(tempZipPath)) fs.unlinkSync(tempZipPath);
+        if (fs.existsSync(tempExtractDir)) fs.rmSync(tempExtractDir, { recursive: true, force: true });
+      } catch (cleanErr) {}
+
+      if (aarFoundCount === 0) {
+        throw new Error('解压完成，但在压缩包内未找到任何 .aar 或 .jar 库文件');
+      }
+
+      event.sender.send('aar_download_progress', {
+        stage: 'done',
+        percent: 100,
+        text: `补全成功！已导入 ${aarFoundCount} 个核心库`,
+      });
+
+      return { success: true, count: aarFoundCount };
+    } catch (err) {
+      console.error('[ipc] download_aar_libs error:', err);
+      event.sender.send('aar_download_progress', {
+        stage: 'error',
+        percent: 0,
+        text: `下载或补全失败: ${err.message}`,
+      });
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('download_android_sdk', async (event, args) => {
+    try {
+      let targetSdkDir = args?.targetDir || process.env.ANDROID_HOME || process.env.ANDROID_SDK_ROOT || '';
+      if (!targetSdkDir) {
+        const localAppData = process.env['LOCALAPPDATA'] || '';
+        targetSdkDir = localAppData ? path.join(localAppData, 'Android\\Sdk') : 'C:\\Android\\Sdk';
+      }
+
+      if (!fs.existsSync(targetSdkDir)) {
+        fs.mkdirSync(targetSdkDir, { recursive: true });
+      }
+
+      const downloadUrl = (args?.url || '').trim() || DEFAULT_SDK_DOWNLOAD_URL;
+      const tempZipPath = path.join(app.getPath('temp'), `android_sdk_mvp_${Date.now()}.zip`);
+      const tempExtractDir = path.join(app.getPath('temp'), `android_sdk_ext_${Date.now()}`);
+
+      event.sender.send('sdk_download_progress', {
+        stage: 'downloading',
+        percent: 0,
+        text: '正在连接 Android SDK 基础套件下载源...',
+      });
+
+      await downloadFileWithProgress(downloadUrl, tempZipPath, ({ receivedBytes, totalBytes, percent }) => {
+        const receivedMb = (receivedBytes / 1024 / 1024).toFixed(1);
+        const totalMb = totalBytes ? (totalBytes / 1024 / 1024).toFixed(1) : '?';
+        event.sender.send('sdk_download_progress', {
+          stage: 'downloading',
+          percent,
+          text: `下载中 ${percent}% (${receivedMb}MB / ${totalMb}MB)`,
+        });
+      });
+
+      event.sender.send('sdk_download_progress', {
+        stage: 'extracting',
+        percent: 100,
+        text: '下载完成，正在解压 Android SDK 核心组件...',
+      });
+
+      fs.mkdirSync(tempExtractDir, { recursive: true });
+      extractZip(tempZipPath, tempExtractDir);
+
+      function mergeDir(src, dest) {
+        if (!fs.existsSync(dest)) fs.mkdirSync(dest, { recursive: true });
+        const items = fs.readdirSync(src, { withFileTypes: true });
+        for (const item of items) {
+          const sPath = path.join(src, item.name);
+          const dPath = path.join(dest, item.name);
+          if (item.isDirectory()) {
+            mergeDir(sPath, dPath);
+          } else {
+            fs.copyFileSync(sPath, dPath);
+          }
+        }
+      }
+
+      const rootItems = fs.readdirSync(tempExtractDir);
+      let contentRoot = tempExtractDir;
+      if (rootItems.length === 1 && fs.statSync(path.join(tempExtractDir, rootItems[0])).isDirectory()) {
+        contentRoot = path.join(tempExtractDir, rootItems[0]);
+      }
+
+      mergeDir(contentRoot, targetSdkDir);
+
+      // 补全 licenses/android-sdk-license（避免 Gradle 抱怨未接受许可协议）
+      const licensesDir = path.join(targetSdkDir, 'licenses');
+      if (!fs.existsSync(licensesDir)) {
+        fs.mkdirSync(licensesDir, { recursive: true });
+      }
+      const licenseFile = path.join(licensesDir, 'android-sdk-license');
+      if (!fs.existsSync(licenseFile)) {
+        fs.writeFileSync(
+          licenseFile,
+          '8933bad161af4178b1185d1a37fbf41ea5269c55\nd56f5187479451eabf01fb78af6dfcb131a6481e\n24333f8a63b6825ea9c5514f83c2829b004d1fee\n',
+          'utf8'
+        );
+      }
+
+      try {
+        if (fs.existsSync(tempZipPath)) fs.unlinkSync(tempZipPath);
+        if (fs.existsSync(tempExtractDir)) fs.rmSync(tempExtractDir, { recursive: true, force: true });
+      } catch (cleanErr) {}
+
+      const currentShellDir = SHELL_DIR || detectShellDir(WORKSPACE_DIR).path;
+      if (currentShellDir) {
+        syncLocalProperties(currentShellDir, targetSdkDir);
+      }
+
+      event.sender.send('sdk_download_progress', {
+        stage: 'done',
+        percent: 100,
+        text: '补全成功！Android SDK 基础套件已就绪',
+      });
+
+      return { success: true, path: targetSdkDir };
+    } catch (err) {
+      console.error('[ipc] download_android_sdk error:', err);
+      event.sender.send('sdk_download_progress', {
+        stage: 'error',
+        percent: 0,
+        text: `Android SDK 补全失败: ${err.message}`,
+      });
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('download_gradle_wrapper', async (event, _args) => {
+    try {
+      const shellDir = SHELL_DIR || detectShellDir(WORKSPACE_DIR).path;
+      if (!shellDir || !fs.existsSync(shellDir)) {
+        throw new Error('未检测到 Android 宿主壳工程目录');
+      }
+
+      const wrapperDir = path.join(shellDir, 'gradle/wrapper');
+      if (!fs.existsSync(wrapperDir)) {
+        fs.mkdirSync(wrapperDir, { recursive: true });
+      }
+
+      event.sender.send('gradle_download_progress', {
+        stage: 'init',
+        percent: 20,
+        text: '正在配置国内腾讯云 Gradle 8.7 极速镜像...',
+      });
+
+      // 1. 确保 gradle-wrapper.properties 指向国内腾讯云镜像
+      const propFile = path.join(wrapperDir, 'gradle-wrapper.properties');
+      const propContent = [
+        'distributionBase=GRADLE_USER_HOME',
+        'distributionPath=wrapper/dists',
+        'distributionUrl=https\\://mirrors.cloud.tencent.com/gradle/gradle-8.7-bin.zip',
+        'networkTimeout=30000',
+        'validateDistributionUrl=true',
+        'zipStoreBase=GRADLE_USER_HOME',
+        'zipStorePath=wrapper/dists',
+        '',
+      ].join('\n');
+      fs.writeFileSync(propFile, propContent, 'utf8');
+
+      // 2. 确保 gradlew.bat 存在
+      const wrapperBat = path.join(shellDir, 'gradlew.bat');
+      if (!fs.existsSync(wrapperBat)) {
+        const zipCandidates = [
+          path.join(shellDir, 'uniapp-minimal-shell.zip'),
+          path.join(WORKSPACE_DIR, 'uniapp-minimal-shell.zip'),
+        ];
+        for (const z of zipCandidates) {
+          if (fs.existsSync(z)) {
+            try {
+              extractZip(z, shellDir);
+              break;
+            } catch (e) {}
+          }
+        }
+      }
+
+      // 3. 确保 gradle-wrapper.jar 存在
+      const wrapperJar = path.join(wrapperDir, 'gradle-wrapper.jar');
+      if (!fs.existsSync(wrapperJar)) {
+        const zipCandidates = [
+          path.join(shellDir, 'uniapp-minimal-shell.zip'),
+          path.join(WORKSPACE_DIR, 'uniapp-minimal-shell.zip'),
+        ];
+        for (const z of zipCandidates) {
+          if (fs.existsSync(z)) {
+            try {
+              extractZip(z, shellDir);
+              break;
+            } catch (e) {}
+          }
+        }
+      }
+
+      event.sender.send('gradle_download_progress', {
+        stage: 'preheating',
+        percent: 50,
+        text: '正在验证并预热 Gradle 运行时环境...',
+      });
+
+      const isWin = process.platform === 'win32';
+      const execBin = isWin ? path.join(shellDir, 'gradlew.bat') : path.join(shellDir, 'gradlew');
+
+      if (fs.existsSync(execBin)) {
+        const envInfo = detectAllEnv(WORKSPACE_DIR);
+        const childEnv = { ...process.env };
+        if (envInfo.jdk.ok) {
+          childEnv.JAVA_HOME = envInfo.jdk.path;
+        }
+
+        await new Promise((resolve, reject) => {
+          const proc = spawn(execBin, ['-v'], {
+            cwd: shellDir,
+            shell: true,
+            env: childEnv,
+          });
+
+          proc.stdout.on('data', (d) => {
+            const outStr = d.toString();
+            const pctMatch = outStr.match(/(\d+)%/);
+            if (pctMatch) {
+              const pct = parseInt(pctMatch[1], 10);
+              event.sender.send('gradle_download_progress', {
+                stage: 'downloading',
+                percent: Math.min(95, 50 + Math.floor(pct * 0.45)),
+                text: `下载 Gradle 8.7 (${pct}%)...`,
+              });
+            }
+          });
+
+          proc.on('error', (err) => reject(err));
+          proc.on('close', (code) => {
+            if (code === 0) resolve();
+            else reject(new Error(`Gradle 初始化退出码: ${code}`));
+          });
+        });
+      }
+
+      event.sender.send('gradle_download_progress', {
+        stage: 'done',
+        percent: 100,
+        text: '补全成功！Gradle 8.7 极速环境已就绪',
+      });
+
+      return { success: true, path: execBin };
+    } catch (err) {
+      console.error('[ipc] download_gradle_wrapper error:', err);
+      event.sender.send('gradle_download_progress', {
+        stage: 'error',
+        percent: 0,
+        text: `Gradle 补全失败: ${err.message}`,
+      });
+      return { success: false, error: err.message };
+    }
+  });
+}
+
+const DEFAULT_AAR_DOWNLOAD_URL = process.env.AAR_DOWNLOAD_URL || 'https://gitee.com/ckjwq/jiora-ui/releases/download/v1.0.0/dcloud-core-libs-v8.zip';
+const DEFAULT_SDK_DOWNLOAD_URL = process.env.SDK_DOWNLOAD_URL || 'https://gitee.com/ckjwq/jiora-ui/releases/download/v1.0.0/android-sdk-mvp-35.zip';
+
+function downloadFileWithProgress(url, destPath, onProgress, maxRedirects = 5) {
+  return new Promise((resolve, reject) => {
+    if (maxRedirects <= 0) {
+      return reject(new Error('重定向次数过多'));
+    }
+
+    if (fs.existsSync(url) && fs.statSync(url).isFile()) {
+      try {
+        fs.copyFileSync(url, destPath);
+        if (onProgress) onProgress({ receivedBytes: 100, totalBytes: 100, percent: 100 });
+        return resolve(destPath);
+      } catch (err) {
+        return reject(err);
+      }
+    }
+
+    const client = url.startsWith('https') ? require('https') : require('http');
+    const req = client.get(url, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) UniAppPackDesktop/1.0' } }, (res) => {
+      if ([301, 302, 303, 307, 308].includes(res.statusCode) && res.headers.location) {
+        res.resume();
+        const redirectUrl = new URL(res.headers.location, url).toString();
+        return downloadFileWithProgress(redirectUrl, destPath, onProgress, maxRedirects - 1)
+          .then(resolve)
+          .catch(reject);
+      }
+
+      if (res.statusCode !== 200) {
+        res.resume();
+        return reject(new Error(`下载请求失败，HTTP 状态码: ${res.statusCode}`));
+      }
+
+      const totalBytes = parseInt(res.headers['content-length'], 10) || 0;
+      let receivedBytes = 0;
+      const fileStream = fs.createWriteStream(destPath);
+
+      res.on('data', (chunk) => {
+        receivedBytes += chunk.length;
+        if (totalBytes > 0 && onProgress) {
+          const percent = Math.min(100, Math.round((receivedBytes / totalBytes) * 100));
+          onProgress({ receivedBytes, totalBytes, percent });
+        }
+      });
+
+      res.pipe(fileStream);
+
+      fileStream.on('finish', () => {
+        fileStream.close(() => resolve(destPath));
+      });
+
+      fileStream.on('error', (err) => {
+        try { if (fs.existsSync(destPath)) fs.unlinkSync(destPath); } catch (e) {}
+        reject(err);
+      });
+    });
+
+    req.on('error', (err) => {
+      try { if (fs.existsSync(destPath)) fs.unlinkSync(destPath); } catch (e) {}
+      reject(err);
+    });
+
+    req.setTimeout(120000, () => {
+      req.destroy(new Error('下载连接超时'));
+    });
+  });
+}
+
+function extractZip(zipFilePath, targetDir) {
+  if (!fs.existsSync(targetDir)) {
+    fs.mkdirSync(targetDir, { recursive: true });
+  }
+
+  const isWin = process.platform === 'win32';
+  const tarExe = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32\\tar.exe');
+
+  if (isWin && fs.existsSync(tarExe)) {
+    try {
+      execSync(`"${tarExe}" -xf "${zipFilePath}" -C "${targetDir}"`, {
+        timeout: 120000,
+        stdio: ['pipe', 'pipe', 'pipe'],
+      });
+      return true;
+    } catch (err) {
+      console.warn('tar.exe 解压异常，尝试 PowerShell 解压:', err.message);
+    }
+  }
+
+  if (isWin) {
+    const psCmd = `powershell -NoProfile -Command "Expand-Archive -Path '${zipFilePath.replace(/'/g, "''")}' -DestinationPath '${targetDir.replace(/'/g, "''")}' -Force"`;
+    execSync(psCmd, {
+      timeout: 180000,
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+    return true;
+  } else {
+    execSync(`unzip -o "${zipFilePath}" -d "${targetDir}"`, {
+      timeout: 120000,
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+    return true;
+  }
 }
 
 // ── App 生命周期 ────────────────────────────────────────────────────

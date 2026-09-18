@@ -22,14 +22,31 @@
       <!-- Android SDK -->
       <div class="status-item">
         <div class="status-info">
-          <div class="status-label">Android SDK</div>
-          <div class="status-detail" :title="envData?.sdk?.path">
-            {{ envData?.sdk?.ok ? envData.sdk.path : (envData?.sdk?.error ?? '未检测到') }}
+          <div class="status-label">Android SDK (MVP 打包套件)</div>
+          <div class="status-detail" :title="sdkDetailText">
+            {{ sdkDetailText }}
+          </div>
+          <div v-if="isDownloadingSdk" class="progress-bar-wrap">
+            <div class="progress-bar-track">
+              <div class="progress-bar-fill" :style="{ width: `${sdkDownloadPercent}%` }"></div>
+            </div>
           </div>
         </div>
-        <span :class="['badge', envData?.sdk?.ok ? 'badge-ok' : 'badge-err']">
-          {{ envData?.sdk?.ok ? '就绪' : '异常' }}
-        </span>
+        <div class="status-actions">
+          <button
+            v-if="!isSdkReady && !isDownloadingSdk"
+            class="btn-action-xs"
+            @click="handleDownloadSdk"
+          >
+            ⬇️ 一键补全
+          </button>
+          <span v-if="isDownloadingSdk" class="status-loading-text">
+            {{ sdkDownloadPercent }}%
+          </span>
+          <span :class="['badge', isSdkReady ? 'badge-ok' : 'badge-err']">
+            {{ isSdkReady ? '就绪' : '缺失' }}
+          </span>
+        </div>
       </div>
 
       <!-- Android 宿主壳工程 -->
@@ -49,26 +66,60 @@
       <div class="status-item">
         <div class="status-info">
           <div class="status-label">Gradle 命令行</div>
-          <div class="status-detail" :title="envData?.gradle?.path">
-            {{ envData?.gradle?.ok ? envData.gradle.path : (envData?.gradle?.error ?? '未检测到') }}
+          <div class="status-detail" :title="gradleDetailText">
+            {{ gradleDetailText }}
+          </div>
+          <div v-if="isDownloadingGradle" class="progress-bar-wrap">
+            <div class="progress-bar-track">
+              <div class="progress-bar-fill" :style="{ width: `${gradleDownloadPercent}%` }"></div>
+            </div>
           </div>
         </div>
-        <span :class="['badge', envData?.gradle?.ok ? 'badge-ok' : 'badge-err']">
-          {{ envData?.gradle?.ok ? (envData.gradle.isWrapper ? 'Gradle Wrapper' : '已就绪') : '未检测到' }}
-        </span>
+        <div class="status-actions">
+          <button
+            v-if="!isGradleReady && !isDownloadingGradle"
+            class="btn-action-xs"
+            @click="handleDownloadGradle"
+          >
+            ⬇️ 一键补全
+          </button>
+          <span v-if="isDownloadingGradle" class="status-loading-text">
+            {{ gradleDownloadPercent }}%
+          </span>
+          <span :class="['badge', isGradleReady ? 'badge-ok' : 'badge-err']">
+            {{ isGradleReady ? (envData?.gradle?.isWrapper ? 'Gradle Wrapper' : '已就绪') : '缺失' }}
+          </span>
+        </div>
       </div>
 
       <!-- DCloud 基座核心 AAR -->
       <div class="status-item">
         <div class="status-info">
           <div class="status-label">DCloud 基座核心 AAR</div>
-          <div class="status-detail">
+          <div class="status-detail" :title="aarDetailText">
             {{ aarDetailText }}
           </div>
+          <div v-if="isDownloadingAar" class="progress-bar-wrap">
+            <div class="progress-bar-track">
+              <div class="progress-bar-fill" :style="{ width: `${aarDownloadPercent}%` }"></div>
+            </div>
+          </div>
         </div>
-        <span :class="['badge', hasAar ? 'badge-ok' : 'badge-warn']">
-          {{ hasAar ? '已就绪' : '需放 AAR' }}
-        </span>
+        <div class="status-actions">
+          <button
+            v-if="!hasAar && !isDownloadingAar"
+            class="btn-action-xs"
+            @click="handleDownloadAar"
+          >
+            ⬇️ 一键补全
+          </button>
+          <span v-if="isDownloadingAar" class="status-loading-text">
+            {{ aarDownloadPercent }}%
+          </span>
+          <span :class="['badge', hasAar ? 'badge-ok' : 'badge-warn']">
+            {{ hasAar ? '已就绪' : '需放 AAR' }}
+          </span>
+        </div>
       </div>
 
       <!-- 签名证书 SHA1 -->
@@ -90,7 +141,15 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
+import {
+  downloadAarLibsApi,
+  listenAarProgress,
+  downloadAndroidSdkApi,
+  listenSdkProgress,
+  downloadGradleWrapperApi,
+  listenGradleProgress
+} from '@/api/workbench.js'
 
 const props = defineProps({
   envData: {
@@ -103,20 +162,68 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['copy'])
+const emit = defineEmits(['copy', 'refresh-env'])
+
+const isDownloadingAar = ref(false)
+const aarDownloadPercent = ref(0)
+const aarDownloadText = ref('')
+
+const isDownloadingSdk = ref(false)
+const sdkDownloadPercent = ref(0)
+const sdkDownloadText = ref('')
+
+const isDownloadingGradle = ref(false)
+const gradleDownloadPercent = ref(0)
+const gradleDownloadText = ref('')
+
+let unlistenAar = null
+let unlistenSdk = null
+let unlistenGradle = null
+
+const isSdkReady = computed(() => {
+  return Boolean(props.envData?.sdk?.ok)
+})
+
+const sdkDetailText = computed(() => {
+  if (isDownloadingSdk.value && sdkDownloadText.value) {
+    return sdkDownloadText.value
+  }
+  if (isSdkReady.value) {
+    return props.envData?.sdk?.path || '已就绪'
+  }
+  return props.envData?.sdk?.error ?? '未检测到 Android SDK，可一键补全'
+})
+
+const isGradleReady = computed(() => {
+  return Boolean(props.envData?.gradle?.ok)
+})
+
+const gradleDetailText = computed(() => {
+  if (isDownloadingGradle.value && gradleDownloadText.value) {
+    return gradleDownloadText.value
+  }
+  if (isGradleReady.value) {
+    return props.envData?.gradle?.path || (props.envData?.gradle?.isWrapper ? 'Gradle Wrapper (已就绪)' : '已就绪')
+  }
+  return props.envData?.gradle?.error ?? '未检测到 Gradle，可一键补全 Wrapper'
+})
 
 const aarCount = computed(() => {
   return props.envData?.aar?.files?.length ?? 0
 })
 
 const hasAar = computed(() => {
-  return aarCount.value > 0
+  return Boolean(props.envData?.aar?.ok && aarCount.value > 0)
 })
 
 const aarDetailText = computed(() => {
-  return hasAar.value
-    ? `已检测到 ${aarCount.value} 个核心库 (app/libs/*.aar)`
-    : '⚠️ app/libs 暂无 aar，请放入官方 SDK'
+  if (isDownloadingAar.value && aarDownloadText.value) {
+    return aarDownloadText.value
+  }
+  if (hasAar.value) {
+    return `已检测到 ${aarCount.value} 个核心库 (app/libs/*.aar)`
+  }
+  return '⚠️ 缺失核心库，可一键自动补全'
 })
 
 const certSha1 = computed(() => {
@@ -133,9 +240,9 @@ const isAllReady = computed(() => {
   }
   return Boolean(
     props.envData?.jdk?.ok &&
-    props.envData?.sdk?.ok &&
+    isSdkReady.value &&
     props.envData?.shell?.ok &&
-    props.envData?.gradle?.ok &&
+    isGradleReady.value &&
     hasAar.value
   )
 })
@@ -153,6 +260,103 @@ const overallBadgeClass = computed(() => {
 function handleCopy(text) {
   if (text) emit('copy', text)
 }
+
+async function handleDownloadAar() {
+  if (isDownloadingAar.value) return
+  isDownloadingAar.value = true
+  aarDownloadPercent.value = 0
+  aarDownloadText.value = '准备下载 DCloud 核心库...'
+  try {
+    const res = await downloadAarLibsApi()
+    if (res?.success) {
+      emit('refresh-env')
+    } else {
+      aarDownloadText.value = res?.error ?? '下载失败'
+    }
+  } catch (err) {
+    aarDownloadText.value = err?.message ?? '下载异常'
+  } finally {
+    setTimeout(() => {
+      isDownloadingAar.value = false
+      aarDownloadText.value = ''
+    }, 2000)
+  }
+}
+
+async function handleDownloadSdk() {
+  if (isDownloadingSdk.value) return
+  isDownloadingSdk.value = true
+  sdkDownloadPercent.value = 0
+  sdkDownloadText.value = '准备下载 Android SDK 套件...'
+  try {
+    const res = await downloadAndroidSdkApi()
+    if (res?.success) {
+      emit('refresh-env')
+    } else {
+      sdkDownloadText.value = res?.error ?? '下载失败'
+    }
+  } catch (err) {
+    sdkDownloadText.value = err?.message ?? '下载异常'
+  } finally {
+    setTimeout(() => {
+      isDownloadingSdk.value = false
+      sdkDownloadText.value = ''
+    }, 2000)
+  }
+}
+
+async function handleDownloadGradle() {
+  if (isDownloadingGradle.value) return
+  isDownloadingGradle.value = true
+  gradleDownloadPercent.value = 0
+  gradleDownloadText.value = '准备配置 Gradle 极速环境...'
+  try {
+    const res = await downloadGradleWrapperApi()
+    if (res?.success) {
+      emit('refresh-env')
+    } else {
+      gradleDownloadText.value = res?.error ?? '补全失败'
+    }
+  } catch (err) {
+    gradleDownloadText.value = err?.message ?? '补全异常'
+  } finally {
+    setTimeout(() => {
+      isDownloadingGradle.value = false
+      gradleDownloadText.value = ''
+    }, 2000)
+  }
+}
+
+onMounted(async () => {
+  try {
+    unlistenAar = await listenAarProgress((payload) => {
+      if (payload) {
+        aarDownloadPercent.value = payload.percent ?? 0
+        if (payload.text) aarDownloadText.value = payload.text
+      }
+    })
+    unlistenSdk = await listenSdkProgress((payload) => {
+      if (payload) {
+        sdkDownloadPercent.value = payload.percent ?? 0
+        if (payload.text) sdkDownloadText.value = payload.text
+      }
+    })
+    unlistenGradle = await listenGradleProgress((payload) => {
+      if (payload) {
+        gradleDownloadPercent.value = payload.percent ?? 0
+        if (payload.text) gradleDownloadText.value = payload.text
+      }
+    })
+  } catch (err) {
+    console.error('监听下载进度失败:', err)
+  }
+})
+
+onUnmounted(() => {
+  if (typeof unlistenAar === 'function') unlistenAar()
+  if (typeof unlistenSdk === 'function') unlistenSdk()
+  if (typeof unlistenGradle === 'function') unlistenGradle()
+})
 </script>
 
 <style lang="scss" scoped>
@@ -193,6 +397,55 @@ function handleCopy(text) {
     text-overflow: ellipsis;
     white-space: nowrap;
     margin-top: 2px;
+  }
+
+  .status-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
+  .btn-action-xs {
+    padding: 2px 8px;
+    font-size: 11px;
+    background: #2563eb;
+    color: #ffffff;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: background-color 0.15s ease;
+    white-space: nowrap;
+
+    &:hover {
+      background: #1d4ed8;
+    }
+  }
+
+  .status-loading-text {
+    font-size: 11px;
+    color: var(--primary, #3b82f6);
+    font-family: monospace;
+    font-weight: 600;
+  }
+
+  .progress-bar-wrap {
+    margin-top: 4px;
+    width: 100%;
+  }
+
+  .progress-bar-track {
+    height: 3px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .progress-bar-fill {
+    height: 100%;
+    background: #3b82f6;
+    transition: width 0.2s ease;
   }
 }
 </style>

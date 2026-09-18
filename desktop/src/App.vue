@@ -89,6 +89,7 @@
             :env-data="envData"
             :is-loading="isLoadingEnv"
             @copy="onCopyText"
+            @refresh-env="loadEnvData"
           />
         </section>
 
