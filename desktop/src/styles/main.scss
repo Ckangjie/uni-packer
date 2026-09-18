@@ -11,14 +11,28 @@ body {
   background: var(--bg);
   color: var(--text);
   line-height: 1.5;
-  padding: 20px;
-  overflow-x: hidden;
+  padding: 0;
+  margin: 0;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
   user-select: none;
 }
 
-.container {
-  max-width: 1440px;
-  margin: 0 auto;
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--card-border);
+  border-radius: 3px;
+
+  &:hover {
+    background: var(--text-muted);
+  }
 }
 
 .card {

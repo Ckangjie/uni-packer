@@ -158,9 +158,9 @@ function handleCopy(text) {
 <style lang="scss" scoped>
 .env-status-card {
   .status-list {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+    gap: 12px;
   }
 
   .status-item {

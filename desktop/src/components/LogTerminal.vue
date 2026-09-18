@@ -204,8 +204,8 @@ defineExpose({
     border: 1px solid var(--card-border);
     border-radius: 8px;
     padding: 12px 14px;
-    min-height: 220px;
-    max-height: 380px;
+    min-height: 380px;
+    height: calc(100vh - 210px);
     overflow-y: auto;
     font-family: Consolas, "Courier New", monospace;
     font-size: 12px;

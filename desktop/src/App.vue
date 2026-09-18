@@ -1,77 +1,146 @@
 <template>
   <div class="desktop-workbench">
-    <div class="container">
-      <!-- 顶部 Header -->
-      <header class="app-header">
-        <div class="brand">
-          <div class="logo-badge">APK</div>
-          <div class="title-wrap">
-            <h1>uni-app 离线打包工作台 (Desktop)</h1>
-            <p>免 Android Studio · 本地秒级构建 · 纯原生桌面控制台</p>
+    <!-- 左侧固定导航侧边栏 (Clash Verge 风格) -->
+    <aside class="workbench-sidebar">
+      <div class="sidebar-top">
+        <!-- 顶部 Brand 品牌 -->
+        <div class="sidebar-brand">
+          <div class="brand-badge">APK</div>
+          <div class="brand-info">
+            <span class="brand-title">UniApp Pack</span>
+            <span class="brand-sub">离线打包工作台</span>
           </div>
         </div>
 
-        <div class="header-actions">
-          <button class="btn btn-secondary" :disabled="isLoadingEnv" @click="loadEnvData">
+        <!-- 导航菜单列表 -->
+        <nav class="sidebar-menu">
+          <button
+            v-for="item in navTabs"
+            :key="item.id"
+            :class="['nav-item', { active: currentTab === item.id }]"
+            @click="switchTab(item.id)"
+          >
+            <span class="nav-icon">{{ item.icon }}</span>
+            <span class="nav-label">{{ item.name }}</span>
+            <span v-if="item.id === 'logs' && isBuilding" class="nav-pulse" title="正在打包中"></span>
+            <span
+              v-if="item.id === 'env' && !isEnvAllReady && !isLoadingEnv"
+              class="nav-warn-dot"
+              title="部分底层环境未就绪"
+            ></span>
+          </button>
+        </nav>
+      </div>
+
+      <!-- 侧边栏底部状态 -->
+      <div class="sidebar-footer">
+        <div class="env-status-pill" @click="switchTab('env')" title="点击查看环境详情">
+          <span :class="['status-dot', isEnvAllReady ? 'dot-ok' : 'dot-warn']"></span>
+          <span class="status-label">{{ envStatusText }}</span>
+        </div>
+        <div class="app-version">Desktop v1.0.0</div>
+      </div>
+    </aside>
+
+    <!-- 右侧主内容区域 -->
+    <main class="workbench-main">
+      <!-- 顶部 Header -->
+      <header class="main-header">
+        <div class="header-left">
+          <h2 class="module-title">{{ activeTabInfo.name }}</h2>
+          <span class="module-desc">{{ activeTabInfo.desc }}</span>
+        </div>
+
+        <div class="header-right">
+          <!-- 当前工程标识 -->
+          <div v-if="packConfig.projectDir" class="project-pill" :title="packConfig.projectDir">
+            <span class="pill-icon">📁</span>
+            <span class="pill-name">{{ currentProjectName }}</span>
+          </div>
+
+          <!-- 环境检测页操作：刷新 -->
+          <button
+            v-if="currentTab === 'env'"
+            class="btn btn-secondary btn-sm"
+            :disabled="isLoadingEnv"
+            @click="loadEnvData"
+          >
             <span v-if="isLoadingEnv" class="spinner"></span>
             <span>🔄 刷新环境</span>
+          </button>
+
+          <!-- 终端日志页操作：打开产物目录 -->
+          <button
+            v-if="currentTab === 'logs' && packConfig.projectDir"
+            class="btn btn-secondary btn-sm"
+            @click="onOpenDistDir()"
+          >
+            <span>📂 打开产物目录</span>
           </button>
         </div>
       </header>
 
-      <!-- 三列网格卡片流 -->
-      <div class="dashboard-grid">
-        <!-- 1. 底层环境检测 -->
-        <EnvStatusCard
-          :env-data="envData"
-          :is-loading="isLoadingEnv"
-          @copy="onCopyText"
-        />
+      <!-- 页面主体容器 (v-show 保持已有输入状态与终端日志输出) -->
+      <div class="main-body">
+        <!-- 1. 打包构建 -->
+        <section v-show="currentTab === 'workbench'" class="tab-pane">
+          <PackConfigCard
+            v-model="packConfig"
+            :icon-preview-url="iconPreviewUrl"
+            :has-icon-updated="hasIconUpdated"
+            :is-building="isBuilding"
+            :is-saving="isSavingConfig"
+            :is-browsing="isBrowsingDir"
+            :is-verifying-cert="isVerifyingCert"
+            @browse-dir="onBrowseDir"
+            @switch-project="onSwitchProject"
+            @save="onSaveConfig"
+            @start-build="onStartBuild"
+            @verify-cert="onVerifyCert"
+            @reset-cert="onResetCert"
+            @select-cert="onSelectCert"
+            @upload-icon="onUploadIcon"
+            @copy="onCopyText"
+          />
+        </section>
 
-        <!-- 2. 应用打包配置 -->
-        <PackConfigCard
-          v-model="packConfig"
-          :icon-preview-url="iconPreviewUrl"
-          :has-icon-updated="hasIconUpdated"
-          :is-building="isBuilding"
-          :is-saving="isSavingConfig"
-          :is-browsing="isBrowsingDir"
-          :is-verifying-cert="isVerifyingCert"
-          @browse-dir="onBrowseDir"
-          @switch-project="onSwitchProject"
-          @save="onSaveConfig"
-          @start-build="onStartBuild"
-          @verify-cert="onVerifyCert"
-          @reset-cert="onResetCert"
-          @select-cert="onSelectCert"
-          @upload-icon="onUploadIcon"
-          @copy="onCopyText"
-        />
+        <!-- 2. 底层环境检测 -->
+        <section v-show="currentTab === 'env'" class="tab-pane">
+          <EnvStatusCard
+            :env-data="envData"
+            :is-loading="isLoadingEnv"
+            @copy="onCopyText"
+          />
+        </section>
 
-        <!-- 3. 离线打包与环境指引 -->
-        <PackGuideCard @copy="onCopyText" />
+        <!-- 3. 构建终端日志 -->
+        <section v-show="currentTab === 'logs'" class="tab-pane tab-logs">
+          <LogTerminal
+            ref="terminalRef"
+            :is-building="isBuilding"
+            :result-info="buildResult"
+            @clear="onClearLogs"
+            @copy="onCopyText"
+            @open-dir="onOpenDistDir"
+          />
+        </section>
+
+        <!-- 4. 配置与环境指南 -->
+        <section v-show="currentTab === 'guide'" class="tab-pane">
+          <PackGuideCard @copy="onCopyText" />
+        </section>
       </div>
-
-      <!-- 流式构建日志终端 -->
-      <LogTerminal
-        ref="terminalRef"
-        :is-building="isBuilding"
-        :result-info="buildResult"
-        @clear="onClearLogs"
-        @copy="onCopyText"
-        @open-dir="onOpenDistDir"
-      />
 
       <!-- 轻量 Toast 提示 -->
       <div v-if="toastMessage" class="toast-tip">
         {{ toastMessage }}
       </div>
-    </div>
+    </main>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import EnvStatusCard from './components/EnvStatusCard.vue'
 import PackConfigCard from './components/PackConfigCard.vue'
 import PackGuideCard from './components/PackGuideCard.vue'
@@ -91,6 +160,15 @@ import {
   listenBuildDone
 } from '@/api/workbench.js'
 
+// 模块标签定义
+const navTabs = [
+  { id: 'workbench', name: '打包构建', icon: '📦', desc: '工程参数配置与一键离线构建' },
+  { id: 'env', name: '环境检测', icon: '⚡', desc: 'Android SDK 与底层运行依赖完备度' },
+  { id: 'logs', name: '终端日志', icon: '📜', desc: 'Gradle 实时构建流水线输出与排查' },
+  { id: 'guide', name: '配置指南', icon: '💡', desc: '官方离线打包规范与配置对照' }
+]
+
+const currentTab = ref('workbench')
 const isLoadingEnv = ref(false)
 const isBuilding = ref(false)
 const isSavingConfig = ref(false)
@@ -116,7 +194,7 @@ const envData = reactive({
   overallOk: false
 })
 
-const packConfig = reactive({
+let packConfig = reactive({
   projectDir: '',
   appName: '',
   versionName: '',
@@ -133,6 +211,42 @@ const packConfig = reactive({
 })
 
 const buildResult = ref(null)
+
+// 派生状态计算
+const activeTabInfo = computed(() => {
+  return navTabs.find((tab) => tab.id === currentTab.value) ?? navTabs[0]
+})
+
+const isEnvAllReady = computed(() => {
+  if (envData.overallOk !== undefined) {
+    return Boolean(envData.overallOk)
+  }
+  return Boolean(
+    envData?.jdk?.ok &&
+    envData?.sdk?.ok &&
+    envData?.shell?.ok &&
+    envData?.gradle?.ok &&
+    (envData?.aar?.files?.length ?? 0) > 0
+  )
+})
+
+const envStatusText = computed(() => {
+  if (isLoadingEnv.value) return '检测中...'
+  return isEnvAllReady.value ? '核心环境就绪' : '部分环境缺失'
+})
+
+const currentProjectName = computed(() => {
+  if (packConfig.appName) return packConfig.appName
+  if (packConfig.projectDir) {
+    const parts = packConfig.projectDir.replace(/\\/g, '/').split('/')
+    return parts[parts.length - 1] || packConfig.projectDir
+  }
+  return '未选择项目'
+})
+
+function switchTab(tabId) {
+  currentTab.value = tabId
+}
 
 function showToast(msg) {
   toastMessage.value = msg
@@ -155,7 +269,7 @@ async function onCopyText(text) {
   }
 }
 
-// 纯原生 Rust 底层环境探测
+// 原生环境探测
 async function loadEnvData() {
   isLoadingEnv.value = true
   try {
@@ -178,7 +292,7 @@ async function loadEnvData() {
   }
 }
 
-// 载入应用桌面图标 (纯原生 Base64 解析，对齐 Web 版展示)
+// 载入应用桌面图标
 async function loadIcon(targetDir = '') {
   const dir = (targetDir || packConfig.projectDir || '').trim()
   try {
@@ -194,7 +308,7 @@ async function loadIcon(targetDir = '') {
   }
 }
 
-// 更换并同步应用桌面图标 (纯原生读写与同步)
+// 更换应用图标
 async function onUploadIcon(file) {
   if (!file) return
   const reader = new FileReader()
@@ -220,7 +334,7 @@ async function onUploadIcon(file) {
   reader.readAsDataURL(file)
 }
 
-// 载入工程配置 (原生解析与历史回退，对齐 Web 版体验)
+// 载入工程配置
 async function loadConfigData(targetDir = '') {
   try {
     const pDir = (targetDir || packConfig.projectDir || '').trim()
@@ -244,7 +358,6 @@ async function loadConfigData(targetDir = '') {
       packConfig.isDefaultCert = Boolean(data.is_default_cert)
     }
 
-    // 载入项目桌面图标
     await loadIcon(packConfig.projectDir)
   } catch (err) {
     console.error('载入工程配置失败:', err)
@@ -302,7 +415,6 @@ async function onSaveConfig() {
   }
 }
 
-
 // 恢复默认测试证书
 async function onResetCert() {
   packConfig.storeFile = 'test.keystore'
@@ -315,7 +427,7 @@ async function onResetCert() {
   showToast('🔄 已恢复为默认调试证书 (test.keystore)')
 }
 
-// 选择并导入自定义证书文件
+// 选择并导入自定义证书
 async function onSelectCert() {
   try {
     const filePath = await pickCertFile()
@@ -333,7 +445,7 @@ async function onSelectCert() {
   }
 }
 
-// 校验并保存证书密码与别名，提取真实 SHA1
+// 校验证书密码与别名
 async function onVerifyCert() {
   if (isVerifyingCert.value) return
   if (!packConfig.storePassword?.trim()) {
@@ -371,7 +483,7 @@ function onClearLogs() {
   buildResult.value = null
 }
 
-// 打开产物所在目录
+// 打开产物目录
 async function onOpenDistDir(customPath = '') {
   try {
     let targetDir = customPath
@@ -391,11 +503,15 @@ async function onOpenDistDir(customPath = '') {
   }
 }
 
-// 一键启动离线打包流水线 (纯原生驱动)
+// 启动离线打包流水线
 async function onStartBuild() {
   if (isBuilding.value) return
   isBuilding.value = true
   buildResult.value = null
+
+  // 触发打包后自动切换至终端日志页
+  currentTab.value = 'logs'
+
   terminalRef.value?.clearLog()
   terminalRef.value?.appendLog('🚀 启动本地纯原生离线打包流水线...\n', 'info')
 
@@ -421,7 +537,6 @@ onMounted(async () => {
   await loadEnvData()
   await loadConfigData(cachedDir)
 
-  // 挂载 Tauri 原生日志与完成事件监听
   unlistenLog = await listenBuildLog((payload) => {
     if (payload?.text) {
       terminalRef.value?.appendLog(payload.text, payload.type ?? 'normal')
@@ -452,93 +567,299 @@ onUnmounted(() => {
 
 <style lang="scss" scoped>
 .desktop-workbench {
-  width: 100%;
-  min-height: 100vh;
+  display: flex;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--bg);
 
-  .app-header {
+  // 1. 左侧固定侧边栏
+  .workbench-sidebar {
+    width: 220px;
+    flex-shrink: 0;
+    height: 100vh;
+    background: var(--sidebar-bg);
+    border-right: 1px solid var(--sidebar-border);
     display: flex;
+    flex-direction: column;
     justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
-    padding-bottom: 14px;
-    border-bottom: 1px solid var(--card-border);
+    padding: 16px 12px;
 
-    .brand {
+    .sidebar-top {
       display: flex;
-      align-items: center;
-      gap: 12px;
+      flex-direction: column;
+      gap: 20px;
 
-      .logo-badge {
-        background: linear-gradient(135deg, #1f6feb, #238636);
-        color: #fff;
-        font-size: 18px;
-        font-weight: 700;
-        width: 38px;
-        height: 38px;
-        border-radius: 8px;
+      .sidebar-brand {
         display: flex;
         align-items: center;
-        justify-content: center;
-      }
+        gap: 10px;
+        padding: 6px 8px;
 
-      .title-wrap {
-        h1 {
-          font-size: 18px;
-          color: var(--text-bright);
-          font-weight: 600;
+        .brand-badge {
+          background: linear-gradient(135deg, #1f6feb, #238636);
+          color: #fff;
+          font-size: 14px;
+          font-weight: 700;
+          width: 32px;
+          height: 32px;
+          border-radius: 8px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          box-shadow: 0 2px 8px rgba(31, 111, 235, 0.35);
         }
 
-        p {
+        .brand-info {
+          display: flex;
+          flex-direction: column;
+
+          .brand-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-bright);
+            letter-spacing: 0.3px;
+          }
+
+          .brand-sub {
+            font-size: 11px;
+            color: var(--text-muted);
+          }
+        }
+      }
+
+      .sidebar-menu {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+
+        .nav-item {
+          position: relative;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          width: 100%;
+          padding: 10px 14px;
+          border-radius: 8px;
+          border: 1px solid transparent;
+          background: transparent;
+          color: var(--text);
+          font-size: 13px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          text-align: left;
+
+          .nav-icon {
+            font-size: 16px;
+            line-height: 1;
+          }
+
+          .nav-label {
+            flex: 1;
+          }
+
+          &:hover {
+            background: var(--sidebar-hover);
+            color: var(--text-bright);
+          }
+
+          &.active {
+            background: var(--sidebar-active-bg);
+            color: var(--sidebar-active-text);
+            font-weight: 600;
+            border-color: rgba(46, 160, 67, 0.3);
+
+            &::before {
+              content: '';
+              position: absolute;
+              left: 0;
+              top: 8px;
+              bottom: 8px;
+              width: 3px;
+              border-radius: 2px;
+              background: var(--primary);
+            }
+          }
+
+          .nav-pulse {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--warning);
+            box-shadow: 0 0 0 0 rgba(210, 153, 34, 0.7);
+            animation: pulse 1.6s infinite;
+          }
+
+          .nav-warn-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: var(--danger);
+          }
+        }
+      }
+    }
+
+    .sidebar-footer {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding-top: 12px;
+      border-top: 1px solid var(--sidebar-border);
+
+      .env-status-pill {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 10px;
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid var(--card-border);
+        border-radius: 6px;
+        cursor: pointer;
+        transition: background 0.2s ease;
+
+        &:hover {
+          background: rgba(255, 255, 255, 0.07);
+        }
+
+        .status-dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+
+          &.dot-ok {
+            background: #3fb950;
+            box-shadow: 0 0 6px rgba(63, 185, 80, 0.6);
+          }
+
+          &.dot-warn {
+            background: #f85149;
+            box-shadow: 0 0 6px rgba(248, 81, 73, 0.6);
+          }
+        }
+
+        .status-label {
+          font-size: 11px;
+          color: var(--text-muted);
+        }
+      }
+
+      .app-version {
+        font-size: 11px;
+        color: var(--text-muted);
+        text-align: center;
+      }
+    }
+  }
+
+  // 2. 右侧主内容区域
+  .workbench-main {
+    flex: 1;
+    min-width: 0;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+
+    .main-header {
+      height: 56px;
+      flex-shrink: 0;
+      border-bottom: 1px solid var(--card-border);
+      padding: 0 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--card-bg);
+
+      .header-left {
+        display: flex;
+        align-items: baseline;
+        gap: 12px;
+
+        .module-title {
+          font-size: 16px;
+          font-weight: 600;
+          color: var(--text-bright);
+        }
+
+        .module-desc {
           font-size: 12px;
           color: var(--text-muted);
         }
       }
-    }
 
-    .header-actions {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-  }
+      .header-right {
+        display: flex;
+        align-items: center;
+        gap: 12px;
 
-  .dashboard-grid {
-    display: grid;
-    grid-template-columns: 320px 1fr 340px;
-    gap: 16px;
-    align-items: start;
+        .project-pill {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          padding: 4px 10px;
+          background: rgba(255, 255, 255, 0.04);
+          border: 1px solid var(--card-border);
+          border-radius: 14px;
+          font-size: 12px;
+          color: var(--text-bright);
+          max-width: 280px;
 
-    @media (max-width: 1280px) {
-      grid-template-columns: 1fr 1fr;
+          .pill-icon {
+            font-size: 13px;
+          }
 
-      > :nth-child(3) {
-        grid-column: span 2;
+          .pill-name {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+        }
       }
     }
 
-    @media (max-width: 860px) {
-      grid-template-columns: 1fr;
+    .main-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px 24px;
 
-      > :nth-child(3) {
-        grid-column: span 1;
+      .tab-pane {
+        max-width: 1280px;
+        margin: 0 auto;
+
+        &.tab-logs {
+          max-width: 100%;
+        }
       }
     }
-  }
 
-  .toast-tip {
-    position: fixed;
-    bottom: 28px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: rgba(30, 35, 45, 0.95);
-    color: #fff;
-    border: 1px solid var(--card-border);
-    padding: 8px 18px;
-    border-radius: 20px;
-    font-size: 13px;
-    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
-    pointer-events: none;
-    z-index: 9999;
+    .toast-tip {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: rgba(22, 27, 34, 0.95);
+      color: #fff;
+      border: 1px solid var(--card-border);
+      padding: 8px 18px;
+      border-radius: 8px;
+      font-size: 13px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+      pointer-events: none;
+      z-index: 9999;
+    }
+  }
+}
+
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(210, 153, 34, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 6px rgba(210, 153, 34, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(210, 153, 34, 0);
   }
 }
 </style>
