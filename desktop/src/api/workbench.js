@@ -139,6 +139,27 @@ export async function openDistDirApi(dirPath = '') {
 }
 
 /**
+ * 通过系统默认浏览器打开外部网页或下载链接
+ * @param {string} url
+ * @returns {Promise<boolean>}
+ */
+export async function openUrlApi(url) {
+  try {
+    const ok = await bridge.invoke('open_url', { url })
+    if (!ok && typeof window !== 'undefined') {
+      window.open(url, '_blank')
+    }
+    return true
+  } catch (err) {
+    console.error('打开外部链接失败:', err)
+    if (typeof window !== 'undefined') {
+      window.open(url, '_blank')
+    }
+    return false
+  }
+}
+
+/**
  * 启动离线打包流水线
  * @param {object} params
  * @returns {Promise<void>}

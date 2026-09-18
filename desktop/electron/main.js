@@ -1355,6 +1355,20 @@ function registerIpcHandlers() {
     }
   });
 
+  ipcMain.handle('open_url', async (_event, args) => {
+    try {
+      const url = args?.url;
+      if (url && (url.startsWith('https://') || url.startsWith('http://'))) {
+        await shell.openExternal(url);
+        return true;
+      }
+      return false;
+    } catch (err) {
+      console.error('[ipc] open_url error:', err);
+      return false;
+    }
+  });
+
   ipcMain.handle('start_offline_build', async (event, args) => {
     try {
       if (isBuildBusy()) {

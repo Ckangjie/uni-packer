@@ -15,13 +15,46 @@
         <summary @click.prevent="toggleGuide(0)">
           <span class="summary-label">
             <span class="step-num">1</span>
-            <span>🛠️ 底层运行环境要求</span>
+            <span>☕ JDK 17 安装与环境变量配置指南</span>
           </span>
         </summary>
         <div class="guide-content">
-          • <b>JDK 运行环境</b>：建议安装 JDK 17 (64位)。配置系统环境变量 <code>JAVA_HOME</code> 指向 JDK 安装目录。<br />
-          • <b>Android SDK</b>：需包含 Platform 33+ 与 Build-Tools 33.0.2+。配置 <code>ANDROID_HOME</code> 并将 <code>platform-tools</code> 加入 <code>Path</code>。<br />
-          • <b>宿主壳工程</b>：工作台协同 <code>uniapp-minimal-shell</code> 壳工程，首次打包将调用 Gradle Wrapper。<br />
+          <div class="guide-sub-heading">📥 推荐下载通道（需 64 位 JDK 17）</div>
+          <div class="guide-action-row">
+            <button
+              class="btn btn-secondary btn-sm"
+              @click="handleOpenUrl('https://mirrors.huaweicloud.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.10+7/OpenJDK17U-jdk_x64_windows_hotspot_17.0.10_7.msi')"
+            >
+              ⚡ 华为云国内高速镜像 (.msi 一键安装包)
+            </button>
+            <button
+              class="btn btn-secondary btn-sm"
+              @click="handleOpenUrl('https://adoptium.net/temurin/releases/?version=17')"
+            >
+              🌐 Eclipse Adoptium 官方主页
+            </button>
+          </div>
+
+          <div class="guide-tip-banner">
+            💡 <b>零门槛技巧</b>：运行 <code>.msi</code> 安装包时，在「Custom Setup」步骤将 <b>「Set JAVA_HOME variable」</b> 和 <b>「Add to PATH」</b> 改为「Will be installed on local hard drive」，安装程序会自动为你配置好所有环境变量，无需手动设置！
+          </div>
+
+          <div class="guide-sub-heading" style="margin-top: 12px;">🛠️ 手动配置系统环境变量（如使用压缩包免安装版）</div>
+          • <b>步骤 ① 设置 JAVA_HOME</b>：<br />
+          &nbsp;&nbsp;按 <kbd>Win + S</kbd> 搜索「编辑系统环境变量」→ 点击【环境变量】→ 在【系统变量】区点击【新建】：<br />
+          &nbsp;&nbsp;变量名：<code>JAVA_HOME</code><br />
+          &nbsp;&nbsp;变量值：<code>D:\Program Files\Eclipse Adoptium\jdk-17.0.10.7-hotspot</code>（填你的实际 JDK 根目录）<br />
+          • <b>步骤 ② 配置 Path</b>：<br />
+          &nbsp;&nbsp;在【系统变量】列表中双击 <code>Path</code> → 点击【新建】→ 填入 <code>%JAVA_HOME%\bin</code> → 点击【上移】按钮移至前列（防止被旧版 Java 优先拦截）。<br />
+          • <b>步骤 ③ 验证就绪</b>：打开 CMD 或 PowerShell 终端，输入下方命令验证（点击可复制）：
+          <div class="guide-code-box" @click="handleCopy('java -version')">
+            java -version 📋
+          </div>
+          显示 <code>openjdk version "17.x.x"</code> 即表示配置成功！返回本工作台点击【底层环境检测】即可自动识别。
+
+          <div class="guide-sub-heading" style="margin-top: 12px;">📱 其他配套运行环境规范</div>
+          • <b>Android SDK</b>：需包含 Platform 33+ 与 Build-Tools 33.0.2+（可直接在环境检测页一键补全）；<br />
+          • <b>宿主壳工程</b>：协同 <code>uniapp-minimal-shell</code>，内置国内 Gradle 8.7 Wrapper；<br />
           • <b>Node.js</b>：Node 18+ 环境，支持前端项目的 <code>build:app-plus</code>。
         </div>
       </details>
@@ -108,6 +141,7 @@
 
 <script setup>
 import { ref, computed } from 'vue'
+import { openUrlApi } from '@/api/workbench.js'
 
 const emit = defineEmits(['copy'])
 
@@ -131,6 +165,18 @@ function handleCopy(text) {
     emit('copy', text)
   }
 }
+
+function handleOpenUrl(url) {
+  openUrlApi(url)
+}
+
+function expandJdkGuide() {
+  guideStates.value[0] = true
+}
+
+defineExpose({
+  expandJdkGuide
+})
 </script>
 
 <style lang="scss" scoped>
@@ -231,6 +277,53 @@ function handleCopy(text) {
         border-radius: 4px;
         color: #7ee787;
         font-family: monospace;
+      }
+
+      .guide-sub-heading {
+        font-size: 12.5px;
+        font-weight: 600;
+        color: var(--text-bright);
+        margin: 6px 0 4px 0;
+      }
+
+      .guide-action-row {
+        display: flex;
+        gap: 8px;
+        margin: 6px 0 10px 0;
+        flex-wrap: wrap;
+
+        .btn {
+          font-size: 12px;
+          padding: 4px 10px;
+        }
+      }
+
+      .guide-tip-banner {
+        background: rgba(88, 166, 255, 0.08);
+        border: 1px solid rgba(88, 166, 255, 0.25);
+        border-radius: 6px;
+        padding: 8px 12px;
+        font-size: 12px;
+        line-height: 1.5;
+        margin: 6px 0 10px 0;
+        color: var(--text);
+
+        code {
+          background: rgba(88, 166, 255, 0.15);
+          color: #58a6ff;
+          padding: 1px 4px;
+          border-radius: 3px;
+        }
+      }
+
+      kbd {
+        background: #21262d;
+        border: 1px solid var(--card-border);
+        border-radius: 3px;
+        padding: 1px 5px;
+        font-size: 11px;
+        color: var(--text-bright);
+        font-family: inherit;
       }
     }
 

@@ -90,6 +90,7 @@
             :is-loading="isLoadingEnv"
             @copy="onCopyText"
             @refresh-env="loadEnvData"
+            @navigate-guide="onNavigateGuide"
           />
         </section>
 
@@ -154,7 +155,7 @@
 
         <!-- 3. 配置与环境指南 -->
         <section v-show="currentTab === 'guide'" class="tab-pane">
-          <PackGuideCard @copy="onCopyText" />
+          <PackGuideCard ref="packGuideCardRef" @copy="onCopyText" />
         </section>
 
         <!-- 4. 系统设置 -->
@@ -261,6 +262,7 @@ const isBrowsingDir = ref(false)
 const isVerifyingCert = ref(false)
 const isGeneratingCert = ref(false)
 const packConfigCardRef = ref(null)
+const packGuideCardRef = ref(null)
 const iconPreviewUrl = ref('')
 const hasIconUpdated = ref(false)
 const toastMessage = ref('')
@@ -363,6 +365,14 @@ async function onCopyText(text) {
     }
   } catch (err) {
     console.error('复制失败:', err)
+  }
+}
+
+// 快速跳转至对应指南章节
+function onNavigateGuide(section = 'jdk') {
+  currentTab.value = 'guide'
+  if (section === 'jdk') {
+    packGuideCardRef.value?.expandJdkGuide()
   }
 }
 

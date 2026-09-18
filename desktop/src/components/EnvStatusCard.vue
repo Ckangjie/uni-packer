@@ -9,14 +9,32 @@
       <!-- JDK -->
       <div class="status-item">
         <div class="status-info">
-          <div class="status-label">JDK 运行环境</div>
+          <div class="status-label">JDK 运行环境 (需 JDK 17)</div>
           <div class="status-detail" :title="envData?.jdk?.path">
-            {{ envData?.jdk?.ok ? envData.jdk.path : (envData?.jdk?.error ?? '未检测到 JDK 17') }}
+            {{ envData?.jdk?.ok ? envData.jdk.path : (envData?.jdk?.error ?? '未检测到 JDK 17，请安装并配置环境变量') }}
           </div>
         </div>
-        <span :class="['badge', envData?.jdk?.ok ? 'badge-ok' : 'badge-err']">
-          {{ envData?.jdk?.ok ? (envData.jdk.version ? `v${envData.jdk.version}` : '就绪') : '异常' }}
-        </span>
+        <div class="status-actions">
+          <button
+            v-if="!isJdkReady"
+            class="btn-action-xs btn-jdk-download"
+            title="通过系统默认浏览器打开华为云高速镜像下载 (.msi 一键安装包)"
+            @click="handleDownloadJdk"
+          >
+            🌐 下载 JDK
+          </button>
+          <button
+            v-if="!isJdkReady"
+            class="btn-action-xs btn-action-guide"
+            title="查看 JDK 17 安装与环境变量配置图文指引"
+            @click="handleViewJdkGuide"
+          >
+            📖 配置文档
+          </button>
+          <span :class="['badge', isJdkReady ? 'badge-ok' : 'badge-err']">
+            {{ isJdkReady ? (envData?.jdk?.version ? `v${envData.jdk.version}` : '就绪') : '异常' }}
+          </span>
+        </div>
       </div>
 
       <!-- Android SDK -->
@@ -148,7 +166,8 @@ import {
   downloadAndroidSdkApi,
   listenSdkProgress,
   downloadGradleWrapperApi,
-  listenGradleProgress
+  listenGradleProgress,
+  openUrlApi
 } from '@/api/workbench.js'
 
 const props = defineProps({
@@ -162,7 +181,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['copy', 'refresh-env'])
+const emit = defineEmits(['copy', 'refresh-env', 'navigate-guide'])
 
 const isDownloadingAar = ref(false)
 const aarDownloadPercent = ref(0)
@@ -179,6 +198,10 @@ const gradleDownloadText = ref('')
 let unlistenAar = null
 let unlistenSdk = null
 let unlistenGradle = null
+
+const isJdkReady = computed(() => {
+  return Boolean(props.envData?.jdk?.ok)
+})
 
 const isSdkReady = computed(() => {
   return Boolean(props.envData?.sdk?.ok)
@@ -327,6 +350,14 @@ async function handleDownloadGradle() {
   }
 }
 
+function handleDownloadJdk() {
+  openUrlApi('https://mirrors.huaweicloud.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.10+7/OpenJDK17U-jdk_x64_windows_hotspot_17.0.10_7.msi')
+}
+
+function handleViewJdkGuide() {
+  emit('navigate-guide', 'jdk')
+}
+
 onMounted(async () => {
   try {
     unlistenAar = await listenAarProgress((payload) => {
@@ -420,6 +451,17 @@ onUnmounted(() => {
 
     &:hover {
       background: #1d4ed8;
+    }
+
+    &.btn-action-guide {
+      background: #21262d;
+      color: var(--text-bright);
+      border: 1px solid var(--card-border);
+
+      &:hover {
+        background: #30363d;
+        border-color: #8b949e;
+      }
     }
   }
 
