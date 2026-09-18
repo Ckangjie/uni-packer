@@ -135,8 +135,9 @@
             type="text"
             class="form-control mono-input"
             :value="modelValue.storePassword"
-            placeholder="如：123456"
+            placeholder="如：123456 (输入后回车自动解析)"
             @input="updateField('storePassword', $event.target.value)"
+            @keydown.enter="handleVerifyCert"
           />
         </div>
         <div class="form-group">
@@ -145,8 +146,9 @@
             type="text"
             class="form-control mono-input"
             :value="modelValue.keyAlias"
-            placeholder="如：test"
+            placeholder="自动提取或手动输入"
             @input="updateField('keyAlias', $event.target.value)"
+            @keydown.enter="handleVerifyCert"
           />
         </div>
         <div class="form-group">

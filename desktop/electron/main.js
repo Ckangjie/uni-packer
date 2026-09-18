@@ -237,7 +237,13 @@ function extractSha1(storeFilePath, storePassword, options = {}) {
       maxBuffer: 8 * 1024 * 1024,
     });
     const sha1Match = certInfo.match(/SHA1:\s*([A-F0-9:]+)/i);
-    const value = { ok: true, sha1: sha1Match ? sha1Match[1].trim() : '', error: '' };
+    const aliasMatch = certInfo.match(/(?:Alias name|别名名称|别名):\s*([^\r\n]+)/i);
+    const value = {
+      ok: true,
+      sha1: sha1Match ? sha1Match[1].trim() : '',
+      alias: aliasMatch ? aliasMatch[1].trim() : '',
+      error: ''
+    };
 
     if (cacheKey) {
       if (KEYTOOL_CACHE.size > 20) KEYTOOL_CACHE.clear();
@@ -246,11 +252,90 @@ function extractSha1(storeFilePath, storePassword, options = {}) {
     return value;
   } catch (err) {
     if (err && (err.killed || err.signal === 'SIGTERM' || err.code === 'ETIMEDOUT')) {
-      return { ok: false, error: `证书读取超时（超过 ${KEYTOOL_TIMEOUT / 1000} 秒）`, sha1: '' };
+      return { ok: false, error: `证书读取超时（超过 ${KEYTOOL_TIMEOUT / 1000} 秒）`, sha1: '', alias: '' };
     }
     const msg = err.stderr ? err.stderr.toString() : err.message;
-    return { ok: false, error: msg.includes('password') ? '密码错误或证书无法读取' : '证书格式错误或密码不匹配', sha1: '' };
+    return { ok: false, error: msg.includes('password') ? '密码错误或证书无法读取' : '证书格式错误或密码不匹配', sha1: '', alias: '' };
   }
+}
+
+const SECRETS_FILE = path.join(CONFIG_DIR, 'cert-secrets.json');
+
+function getSavedPasswords() {
+  try {
+    if (fs.existsSync(SECRETS_FILE)) {
+      const data = JSON.parse(fs.readFileSync(SECRETS_FILE, 'utf8'));
+      if (Array.isArray(data)) return data;
+    }
+  } catch (e) {}
+  return [];
+}
+
+function saveKnownPassword(password) {
+  if (!password || typeof password !== 'string') return;
+  const pw = password.trim();
+  if (!pw) return;
+  try {
+    const list = getSavedPasswords();
+    if (!list.includes(pw)) {
+      list.unshift(pw);
+      if (list.length > 50) list.length = 50;
+      if (!fs.existsSync(CONFIG_DIR)) fs.mkdirSync(CONFIG_DIR, { recursive: true });
+      fs.writeFileSync(SECRETS_FILE, JSON.stringify(list, null, 2), 'utf8');
+    }
+  } catch (e) {}
+}
+
+function probeKeystore(storeFilePath, extraCandidates = []) {
+  if (!fs.existsSync(storeFilePath)) {
+    return { ok: false, error: '证书文件不存在: ' + path.basename(storeFilePath) };
+  }
+
+  const baseName = path.basename(storeFilePath, path.extname(storeFilePath));
+  const savedPws = getSavedPasswords();
+  const defaultPws = ['123456', 'android', '12345678', '123456789', 'admin', 'password', 'test', 'release'];
+
+  const candidatePool = Array.from(new Set([
+    ...extraCandidates.filter(Boolean),
+    ...savedPws,
+    ...defaultPws,
+    baseName,
+    ''
+  ]));
+
+  const jdk = detectJdk();
+  const keytoolCmd = jdk.keytoolPath ? `"${jdk.keytoolPath}"` : 'keytool';
+
+  for (const pw of candidatePool) {
+    try {
+      const certInfo = execSync(`${keytoolCmd} -list -v -keystore "${storeFilePath}" -storepass "${pw}"`, {
+        encoding: 'utf8',
+        stdio: ['pipe', 'pipe', 'pipe'],
+        timeout: 4000,
+        maxBuffer: 4 * 1024 * 1024,
+      });
+
+      const sha1Match = certInfo.match(/SHA1:\s*([A-F0-9:]+)/i);
+      const aliasMatch = certInfo.match(/(?:Alias name|别名名称|别名):\s*([^\r\n]+)/i);
+
+      if (sha1Match || aliasMatch) {
+        const sha1 = sha1Match ? sha1Match[1].trim() : '';
+        const keyAlias = aliasMatch ? aliasMatch[1].trim() : 'test';
+        if (pw) saveKnownPassword(pw);
+        return {
+          ok: true,
+          storePassword: pw,
+          keyAlias,
+          keyPassword: pw,
+          sha1,
+        };
+      }
+    } catch (err) {
+      continue;
+    }
+  }
+
+  return { ok: false, needPassword: true, error: '未能自动探测出密码' };
 }
 
 function updateGradleSigning(signingCfg) {
@@ -970,18 +1055,40 @@ function registerIpcHandlers() {
     try {
       const { storeFile, storePassword, keyAlias, keyPassword, projectDir } = args || {};
       const targetDir = resolveTargetDir(projectDir);
+      const cleanStoreFile = (storeFile || 'test.keystore').trim();
+      const pw = (storePassword || '').trim();
+      const certFile = resolveKeystorePath(cleanStoreFile, targetDir);
+
+      let alias = (keyAlias || '').trim();
+
+      // 若未指定别名，利用 probeKeystore 提取别名
+      if (pw) {
+        const probeRes = probeKeystore(certFile, [pw]);
+        if (probeRes.ok) {
+          if (!alias) alias = probeRes.keyAlias;
+          saveKnownPassword(pw);
+        }
+      }
+
       const newCfg = {
-        storeFile: (storeFile || 'test.keystore').trim(),
-        storePassword: (storePassword || '').trim(),
-        keyAlias: (keyAlias || '').trim(),
-        keyPassword: (keyPassword || storePassword || '').trim(),
+        storeFile: cleanStoreFile,
+        storePassword: pw,
+        keyAlias: alias || 'test',
+        keyPassword: (keyPassword || pw).trim(),
         isDefault: false,
       };
 
-      const certFile = resolveKeystorePath(newCfg.storeFile, targetDir);
       const certResult = extractSha1(certFile, newCfg.storePassword, { noCache: true });
       if (!certResult.ok) {
         return { success: false, error: certResult.error || '证书或密码校验失败' };
+      }
+
+      if (!alias && certResult.alias) {
+        newCfg.keyAlias = certResult.alias;
+      }
+
+      if (newCfg.storePassword) {
+        saveKnownPassword(newCfg.storePassword);
       }
 
       fs.writeFileSync(SIGNING_CONFIG_FILE, JSON.stringify(newCfg, null, 2), 'utf8');
@@ -994,7 +1101,12 @@ function registerIpcHandlers() {
       };
       savePackConfig(currentPackCfg, targetDir);
 
-      return { success: true, sha1: certResult.sha1 };
+      return {
+        success: true,
+        sha1: certResult.sha1,
+        keyAlias: newCfg.keyAlias,
+        keyPassword: newCfg.keyPassword
+      };
     } catch (err) {
       console.error('[ipc] verify_cert error:', err);
       return { success: false, error: err.message };
@@ -1014,15 +1126,53 @@ function registerIpcHandlers() {
       }
 
       const buffer = fs.readFileSync(filePath);
-      fs.writeFileSync(path.join(SHELL_DIR, 'app', cleanName), buffer);
+      const shellCertPath = path.join(SHELL_DIR, 'app', cleanName);
+      const configCertPath = path.join(CONFIG_DIR, cleanName);
+
+      fs.writeFileSync(shellCertPath, buffer);
       if (!fs.existsSync(CONFIG_DIR)) fs.mkdirSync(CONFIG_DIR, { recursive: true });
-      fs.writeFileSync(path.join(CONFIG_DIR, cleanName), buffer);
+      fs.writeFileSync(configCertPath, buffer);
 
       if (targetDir && fs.existsSync(path.join(targetDir, 'config'))) {
         fs.writeFileSync(path.join(targetDir, 'config', cleanName), buffer);
       }
 
-      return cleanName;
+      // 导入后立即全自动嗅探密码、别名与 SHA1
+      const probeRes = probeKeystore(configCertPath);
+      if (probeRes.ok) {
+        const autoCfg = {
+          storeFile: cleanName,
+          storePassword: probeRes.storePassword,
+          keyAlias: probeRes.keyAlias,
+          keyPassword: probeRes.keyPassword,
+          isDefault: false,
+        };
+
+        try {
+          fs.writeFileSync(SIGNING_CONFIG_FILE, JSON.stringify(autoCfg, null, 2), 'utf8');
+          updateGradleSigning(autoCfg);
+          const currentPackCfg = getPackConfig(targetDir) || {};
+          currentPackCfg.signing = {
+            ...autoCfg,
+            sha1: probeRes.sha1,
+          };
+          savePackConfig(currentPackCfg, targetDir);
+        } catch (e) {}
+
+        return {
+          fileName: cleanName,
+          autoFilled: true,
+          storePassword: probeRes.storePassword,
+          keyAlias: probeRes.keyAlias,
+          keyPassword: probeRes.keyPassword,
+          sha1: probeRes.sha1
+        };
+      }
+
+      return {
+        fileName: cleanName,
+        autoFilled: false
+      };
     } catch (err) {
       console.error('[ipc] import_cert_file error:', err);
       throw err;

@@ -497,32 +497,41 @@ async function onResetCert() {
   showToast('🔄 已恢复为默认调试证书 (test.keystore)')
 }
 
-// 选择并导入自定义证书
+// 选择并导入自定义证书 (全自动探测密码、别名与 SHA1)
 async function onSelectCert() {
   try {
     const filePath = await pickCertFile()
     if (!filePath) return
-    const fileName = await importCertApi({
+    const res = await importCertApi({
       filePath,
       projectDir: packConfig.projectDir
     })
+
+    const fileName = typeof res === 'string' ? res : (res?.fileName || '')
     packConfig.storeFile = fileName
     packConfig.isDefaultCert = false
-    showToast(`✅ 已选择并导入证书: ${fileName}`)
+
+    if (res?.autoFilled) {
+      packConfig.storePassword = res.storePassword ?? ''
+      packConfig.keyAlias = res.keyAlias ?? ''
+      packConfig.keyPassword = res.keyPassword ?? res.storePassword ?? ''
+      packConfig.sha1 = res.sha1 ?? ''
+      await onSaveConfig()
+      showToast(`🎉 自动识别成功！别名【${res.keyAlias}】与 SHA1 已提取生效`)
+    } else {
+      showToast(`✅ 已导入证书: ${fileName}，输入密码即可自动提取别名`)
+    }
   } catch (err) {
     console.error('选择证书异常:', err)
     showToast(`❌ 选择证书失败: ${err?.message ?? '未知错误'}`)
   }
 }
 
-// 校验证书密码与别名
+// 校验证书密码 (别名若未输入将全自动探测并回填)
 async function onVerifyCert() {
   if (isVerifyingCert.value) return
   if (!packConfig.storePassword?.trim()) {
     return showToast('⚠️ 请输入证书密码')
-  }
-  if (!packConfig.keyAlias?.trim()) {
-    return showToast('⚠️ 请输入证书别名')
   }
 
   isVerifyingCert.value = true
@@ -530,15 +539,21 @@ async function onVerifyCert() {
     const res = await verifyAndSaveCertApi({
       storeFile: packConfig.storeFile,
       storePassword: packConfig.storePassword.trim(),
-      keyAlias: packConfig.keyAlias.trim(),
+      keyAlias: packConfig.keyAlias?.trim() || '',
       projectDir: packConfig.projectDir
     })
     if (res?.success) {
       packConfig.sha1 = res.sha1
+      if (res.keyAlias) {
+        packConfig.keyAlias = res.keyAlias
+      }
+      if (res.keyPassword) {
+        packConfig.keyPassword = res.keyPassword
+      }
       await onSaveConfig()
-      showToast('✅ 证书密码与别名校验通过！真实 SHA1 已提取生效')
+      showToast(`✅ 校验通过！真实别名【${packConfig.keyAlias}】与 SHA1 已自动生效`)
     } else {
-      showToast(`❌ 证书校验失败: ${res?.error || '密码或别名可能不正确'}`)
+      showToast(`❌ 证书校验失败: ${res?.error || '密码可能不正确'}`)
     }
   } catch (err) {
     console.error('校验证书异常:', err)
