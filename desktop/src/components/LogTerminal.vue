@@ -162,8 +162,8 @@ defineExpose({
     width: 100%;
     min-width: 0;
     box-sizing: border-box;
-    height: calc(100vh - 280px);
-    min-height: 320px;
+    height: clamp(260px, 36vh, 460px);
+    min-height: 240px;
     border: 1px solid var(--card-border);
     border-radius: 8px;
     overflow-y: auto;

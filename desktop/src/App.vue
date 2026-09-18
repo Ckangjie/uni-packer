@@ -93,11 +93,11 @@
           />
         </section>
 
-        <!-- 2. 打包构建 + 实时日志 (双列一体化工作台) -->
+        <!-- 2. 打包构建 + 实时日志 (上下垂直分块工作台) -->
         <section v-show="currentTab === 'workbench'" class="tab-pane tab-workbench">
-          <div class="workbench-grid">
-            <!-- 左侧：应用打包参数与操作 -->
-            <div class="config-col">
+          <div class="workbench-layout">
+            <!-- 上方：应用打包配置分块区域 -->
+            <div class="config-section">
               <PackConfigCard
                 v-model="packConfig"
                 :icon-preview-url="iconPreviewUrl"
@@ -118,8 +118,8 @@
               />
             </div>
 
-            <!-- 右侧：实时终端构建流水线日志与底部产物结果展示 -->
-            <div class="terminal-col">
+            <!-- 下方：实时终端构建流水线日志与底部产物结果展示 (通栏) -->
+            <div class="terminal-section">
               <LogTerminal
                 ref="terminalRef"
                 :is-building="isBuilding"
@@ -128,7 +128,7 @@
                 @clear="onClearLogs"
               />
 
-              <!-- 打包成功/完成结果展示区 (红框区域) -->
+              <!-- 打包成功/完成结果展示区 -->
               <div
                 v-if="buildResult"
                 :class="['card', 'build-result-card', buildResult.isSuccess ? 'success' : 'error']"
@@ -969,24 +969,19 @@ onUnmounted(() => {
           width: 100%;
           max-width: 100%;
 
-          .workbench-grid {
-            display: grid;
-            grid-template-columns: minmax(360px, 480px) minmax(0, 1fr);
+          .workbench-layout {
+            display: flex;
+            flex-direction: column;
             gap: 14px;
-            align-items: start;
             width: 100%;
             min-width: 0;
 
-            @media (max-width: 1020px) {
-              grid-template-columns: 1fr;
-            }
-
-            .config-col {
+            .config-section {
               width: 100%;
               min-width: 0;
             }
 
-            .terminal-col {
+            .terminal-section {
               display: flex;
               flex-direction: column;
               gap: 12px;
