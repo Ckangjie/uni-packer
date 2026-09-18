@@ -113,13 +113,6 @@
         </div>
         <div class="cert-actions">
           <button class="btn btn-secondary btn-sm" @click="handleSelectCert">📁 选择证书文件</button>
-          <button
-            v-if="!modelValue.isDefaultCert"
-            class="btn btn-secondary btn-sm"
-            @click="handleResetCert"
-          >
-            🔄 恢复默认
-          </button>
         </div>
       </div>
 
@@ -135,9 +128,10 @@
             type="text"
             class="form-control mono-input"
             :value="modelValue.storePassword"
-            placeholder="如：123456 (输入后回车自动解析)"
+            placeholder="如：123456 (失焦或回车自动解析)"
             @input="updateField('storePassword', $event.target.value)"
-            @keydown.enter="handleVerifyCert"
+            @blur="onPasswordBlurOrEnter"
+            @keydown.enter="onPasswordBlurOrEnter"
           />
         </div>
         <div class="form-group">
@@ -307,8 +301,21 @@ function handleResetCert() {
   emit('reset-cert')
 }
 
+let lastVerifiedPassword = ''
+
 function handleVerifyCert() {
   emit('verify-cert')
+}
+
+function onPasswordBlurOrEnter() {
+  const currentPw = props.modelValue.storePassword?.trim()
+  if (!currentPw) return
+  if (props.isVerifyingCert) return
+  if (currentPw === lastVerifiedPassword && props.modelValue.keyAlias && props.modelValue.sha1) {
+    return
+  }
+  lastVerifiedPassword = currentPw
+  handleVerifyCert()
 }
 
 function handleSave() {
