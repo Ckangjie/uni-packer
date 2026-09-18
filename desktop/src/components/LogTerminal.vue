@@ -3,10 +3,6 @@
     <div class="card-title">
       <div class="title-left">
         <span>📋 构建与打包实时日志</span>
-        <span v-if="isBuilding" class="badge badge-warn">
-          <span class="spinner"></span>
-          <span>打包构建中...</span>
-        </span>
       </div>
       <div class="title-actions">
         <button
