@@ -95,9 +95,14 @@ function clearLog() {
   hasLogs.value = false
 }
 
+function getLogText() {
+  return terminalRef.value?.innerText ?? ''
+}
+
 defineExpose({
   appendLog,
-  clearLog
+  clearLog,
+  getLogText
 })
 </script>
 

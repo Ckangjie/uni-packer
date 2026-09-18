@@ -140,7 +140,7 @@
                   </div>
                 </div>
                 <div v-if="buildResult.isSuccess" class="result-actions">
-                  <button class="btn btn-primary btn-sm" @click="onOpenDistDir()">
+                  <button class="btn btn-primary btn-sm" @click="onOpenDistDir(buildResult.apkPath)">
                     📂 打开所在目录
                   </button>
                 </div>
@@ -588,7 +588,7 @@ function onClearLogs() {
 // 打开产物目录
 async function onOpenDistDir(customPath = '') {
   try {
-    let targetDir = customPath
+    let targetDir = customPath || buildResult.value?.apkPath || ''
     if (!targetDir) {
       targetDir = packConfig.projectDir ? `${packConfig.projectDir}\\dist` : ''
     } else if (targetDir.toLowerCase().endsWith('.apk')) {
@@ -602,6 +602,22 @@ async function onOpenDistDir(customPath = '') {
     }
   } catch (err) {
     console.error('打开目录异常:', err)
+  }
+}
+
+// 尝试从当前终端日志恢复构建结果 (避免页面热重载/刷新后状态丢失)
+function tryRecoverResultFromLog() {
+  if (buildResult.value) return
+  const text = terminalRef.value?.getLogText?.() ?? ''
+  const match = text.match(/APK 文件已输出:\s*([^\r\n]+)/)
+  if (match && match[1]) {
+    const outPath = match[1].trim()
+    isBuilding.value = false
+    buildResult.value = {
+      isSuccess: true,
+      apkPath: outPath,
+      message: `🎉 打包成功！产物已输出至: ${outPath}`
+    }
   }
 }
 
@@ -632,13 +648,22 @@ async function onStartBuild() {
 }
 
 onMounted(async () => {
-  const cachedDir = localStorage.getItem('uni_pack_project_dir') ?? ''
-  await loadEnvData()
-  await loadConfigData(cachedDir)
-
+  // 1. 优先立即注册事件监听，保障不错过任何原生消息推送
   unlistenLog = await listenBuildLog((payload) => {
     if (payload?.text) {
       terminalRef.value?.appendLog(payload.text, payload.type ?? 'normal')
+
+      // 双重保障：实时从终端日志流感知产物就绪
+      const successMatch = payload.text.match(/APK 文件已输出:\s*([^\r\n]+)/)
+      if (successMatch && successMatch[1]) {
+        const outPath = successMatch[1].trim()
+        isBuilding.value = false
+        buildResult.value = {
+          isSuccess: true,
+          apkPath: outPath,
+          message: `🎉 打包成功！产物已输出至: ${outPath}`
+        }
+      }
     }
   })
 
@@ -647,15 +672,25 @@ onMounted(async () => {
     if (payload?.success) {
       buildResult.value = {
         isSuccess: true,
+        apkPath: payload.apk_path,
         message: `🎉 打包成功！产物已输出至: ${payload.apk_path}`
       }
     } else {
       buildResult.value = {
         isSuccess: false,
+        apkPath: '',
         message: `❌ 打包失败: ${payload?.message ?? '请检查日志'}`
       }
     }
   })
+
+  // 2. 异步检测环境与载入配置
+  const cachedDir = localStorage.getItem('uni_pack_project_dir') ?? ''
+  await loadEnvData()
+  await loadConfigData(cachedDir)
+
+  // 3. 若当前终端已包含构建成功输出，立即恢复结果展示卡片
+  setTimeout(tryRecoverResultFromLog, 300)
 })
 
 onUnmounted(() => {

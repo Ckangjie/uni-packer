@@ -736,15 +736,23 @@ async function runBuildPipeline(sender, params) {
       if (fs.existsSync(apkSource)) {
         fs.copyFileSync(apkSource, apkTarget);
         sendLog(`✅ APK 文件已输出: ${apkTarget}\n`, 'info');
-        sender.send('build-done', {
+        const donePayload = {
           success: true,
           apk_name: finalApkName,
           apk_path: apkTarget,
           message: '🎉 离线打包成功！产物已输出。',
-        });
+        };
+        try { sender.send('build-done', donePayload); } catch (e) {}
+        if (mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents && mainWindow.webContents !== sender) {
+          try { mainWindow.webContents.send('build-done', donePayload); } catch (e) {}
+        }
       } else {
         sendLog(`❌ 未在预期位置找到编译产出: ${apkSource}\n`, 'err');
-        sender.send('build-done', { success: false, message: '未找到产出 APK' });
+        const failPayload = { success: false, message: '未找到产出 APK' };
+        try { sender.send('build-done', failPayload); } catch (e) {}
+        if (mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents && mainWindow.webContents !== sender) {
+          try { mainWindow.webContents.send('build-done', failPayload); } catch (e) {}
+        }
       }
     });
   });
@@ -1218,7 +1226,12 @@ function registerIpcHandlers() {
     try {
       const dirPath = args?.dirPath;
       if (dirPath && fs.existsSync(dirPath)) {
-        await shell.openPath(dirPath);
+        const stat = fs.statSync(dirPath);
+        if (stat.isFile()) {
+          shell.showItemInFolder(dirPath);
+        } else {
+          await shell.openPath(dirPath);
+        }
       }
     } catch (err) {
       console.error('[ipc] open_directory error:', err);
