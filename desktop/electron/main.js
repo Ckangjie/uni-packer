@@ -794,17 +794,36 @@ function createWindow() {
   const devUrl = 'http://127.0.0.1:1420';
   const prodFile = path.join(__dirname, '../dist/index.html');
 
-  if (!app.isPackaged && process.env.VITE_DEV_SERVER_URL) {
+  if (app.isPackaged) {
+    mainWindow.loadFile(prodFile);
+  } else if (process.env.VITE_DEV_SERVER_URL) {
     mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL);
-  } else if (fs.existsSync(prodFile)) {
-    // 优先直读本地 dist/index.html，避免网络握手与超时延迟
-    mainWindow.loadFile(prodFile);
-  } else if (!app.isPackaged) {
-    mainWindow.loadURL(devUrl).catch(() => {
-      mainWindow.loadFile(prodFile);
-    });
   } else {
-    mainWindow.loadFile(prodFile);
+    // 开发模式下优先探测 Vite Dev Server (1420 端口)
+    const net = require('net');
+    const socket = new net.Socket();
+    let isConnected = false;
+
+    socket.setTimeout(250);
+    socket.on('connect', () => {
+      isConnected = true;
+      socket.destroy();
+      mainWindow.loadURL(devUrl);
+    });
+    const onFallback = () => {
+      if (isConnected) return;
+      socket.destroy();
+      if (fs.existsSync(prodFile)) {
+        mainWindow.loadFile(prodFile);
+      } else {
+        mainWindow.loadURL(devUrl).catch(() => {
+          mainWindow.loadFile(prodFile);
+        });
+      }
+    };
+    socket.on('timeout', onFallback);
+    socket.on('error', onFallback);
+    socket.connect(1420, '127.0.0.1');
   }
 }
 
