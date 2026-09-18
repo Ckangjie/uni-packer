@@ -767,6 +767,7 @@ function createWindow() {
     height: 840,
     minWidth: 980,
     minHeight: 640,
+    show: false, // 初始隐藏窗口，避免首屏渲染前展示纯黑底色
     backgroundColor: '#0d1117',
     title: 'uni-app 离线打包工作台 (Desktop)',
     webPreferences: {
@@ -778,11 +779,26 @@ function createWindow() {
 
   mainWindow.setMenuBarVisibility(false);
 
+  // 页面首屏渲染就绪后再显示窗口，彻底杜绝黑屏闪烁
+  const showTimer = setTimeout(() => {
+    if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.isVisible()) {
+      mainWindow.show();
+    }
+  }, 1200);
+
+  mainWindow.once('ready-to-show', () => {
+    clearTimeout(showTimer);
+    mainWindow.show();
+  });
+
   const devUrl = 'http://127.0.0.1:1420';
   const prodFile = path.join(__dirname, '../dist/index.html');
 
   if (!app.isPackaged && process.env.VITE_DEV_SERVER_URL) {
     mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL);
+  } else if (fs.existsSync(prodFile)) {
+    // 优先直读本地 dist/index.html，避免网络握手与超时延迟
+    mainWindow.loadFile(prodFile);
   } else if (!app.isPackaged) {
     mainWindow.loadURL(devUrl).catch(() => {
       mainWindow.loadFile(prodFile);
