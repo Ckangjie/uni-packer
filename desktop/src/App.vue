@@ -135,8 +135,7 @@
                 <div class="result-info">
                   <span class="result-icon">{{ buildResult.isSuccess ? '🎉' : '❌' }}</span>
                   <div class="result-content">
-                    <div class="result-title">{{ buildResult.isSuccess ? '打包成功！产物已就绪' : '打包失败' }}</div>
-                    <div class="result-msg" :title="buildResult.message">{{ buildResult.message }}</div>
+                    <div class="result-title">{{ buildResult.isSuccess ? '打包成功！产物已就绪' : (buildResult.message || '打包失败') }}</div>
                   </div>
                 </div>
                 <div v-if="buildResult.isSuccess" class="result-actions">
@@ -1033,16 +1032,6 @@ onUnmounted(() => {
                       white-space: nowrap;
                       overflow: hidden;
                       text-overflow: ellipsis;
-                    }
-
-                    .result-msg {
-                      font-size: 11px;
-                      color: var(--text-muted);
-                      font-family: monospace;
-                      overflow: hidden;
-                      text-overflow: ellipsis;
-                      white-space: nowrap;
-                      margin-top: 2px;
                     }
                   }
                 }
