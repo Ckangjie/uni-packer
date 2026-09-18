@@ -11,7 +11,7 @@
     <!-- 目标工程路径选择 -->
     <div class="project-picker-box">
       <div class="picker-header">
-        <label>📁 目标 uni-app 项目目录 (支持任意工程切换)</label>
+        <label>📁 目标 uni-app 项目目录</label>
         <span class="picker-tip">自动识别 pnpm / npm / yarn</span>
       </div>
       <div class="picker-row">
@@ -44,7 +44,7 @@
       </div>
       <div class="icon-meta">
         <div class="icon-title-bar">
-          <span class="icon-title">应用桌面图标 (App Icon)</span>
+          <span class="icon-title">应用桌面图标</span>
           <span v-if="hasIconUpdated" class="icon-status-ok">✅ 已保存并同步</span>
         </div>
         <div class="icon-tip">支持 PNG / JPG，推荐 512×512 正方形图片</div>
@@ -62,7 +62,7 @@
     <!-- 应用参数展示 (从 manifest.json 解析，保持与 Web 版一致为只读) -->
     <div class="form-row">
       <div class="form-group">
-        <label>应用名称 (AppName)</label>
+        <label>应用名称</label>
         <input
           type="text"
           class="form-control"
@@ -71,7 +71,7 @@
         />
       </div>
       <div class="form-group">
-        <label>版本号 (VersionName)</label>
+        <label>版本号</label>
         <input
           type="text"
           class="form-control"
@@ -83,7 +83,7 @@
 
     <div class="form-row">
       <div class="form-group">
-        <label>应用包名 (PackageName)</label>
+        <label>应用包名</label>
         <input
           type="text"
           class="form-control"
@@ -130,7 +130,7 @@
 
       <div class="form-row cert-inputs">
         <div class="form-group">
-          <label>证书密码 (Store Password)</label>
+          <label>证书密码</label>
           <input
             type="text"
             class="form-control mono-input"
@@ -140,7 +140,7 @@
           />
         </div>
         <div class="form-group">
-          <label>证书别名 (Key Alias)</label>
+          <label>证书别名</label>
           <input
             type="text"
             class="form-control mono-input"
@@ -150,7 +150,7 @@
           />
         </div>
         <div class="form-group">
-          <label>别名密码 (Key Password)</label>
+          <label>别名密码</label>
           <input
             type="text"
             class="form-control mono-input"
@@ -163,7 +163,7 @@
 
       <div class="cert-sha1-box">
         <div class="cert-sha1-info">
-          <div class="cert-sha1-label">当前证书 SHA1 指纹 (申请下方 AppKey 必需)：</div>
+          <div class="cert-sha1-label">当前证书 SHA1 指纹：</div>
           <div class="copyable cert-sha1-val" @click="handleCopy(modelValue.sha1)">
             {{ modelValue.sha1 || '未提取/校验后生成' }}
           </div>
@@ -176,7 +176,7 @@
 
     <!-- DCloud 离线 AppKey -->
     <div class="form-group">
-      <label>DCloud 离线 AppKey (需与上方提取的 SHA1 和包名绑定)</label>
+      <label>DCloud 离线 AppKey</label>
       <input
         type="text"
         class="form-control"
@@ -188,7 +188,7 @@
 
     <!-- 输出 APK 文件名 -->
     <div class="form-group">
-      <label>输出 APK 文件名 (留空则自动按 应用名_v版本号.apk 命名)</label>
+      <label>输出 APK 文件名</label>
       <input
         type="text"
         class="form-control"

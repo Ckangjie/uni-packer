@@ -74,7 +74,7 @@
       <!-- 签名证书 SHA1 -->
       <div class="status-item">
         <div class="status-info">
-          <div class="status-label">签名证书 SHA1 (点击复制)</div>
+          <div class="status-label">签名证书 SHA1</div>
           <div class="status-detail">
             <span class="copyable" @click="handleCopy(certSha1)">
               {{ certSha1 || '未生成/未就绪' }}
