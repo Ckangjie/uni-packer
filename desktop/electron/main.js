@@ -1206,6 +1206,104 @@ function registerIpcHandlers() {
     }
   });
 
+  ipcMain.handle('generate_cert_file', async (_event, args) => {
+    try {
+      const {
+        fileName = 'release.keystore',
+        keyAlias = 'release',
+        storePassword = '',
+        validityYears = 100,
+        dname = 'CN=Android App, OU=Dev, O=Organization, C=CN',
+        projectDir = ''
+      } = args || {};
+
+      const cleanPass = String(storePassword || '').trim();
+      if (!cleanPass || cleanPass.length < 6) {
+        throw new Error('证书密码至少需要 6 位字符');
+      }
+
+      const cleanAlias = String(keyAlias || '').trim();
+      if (!cleanAlias) {
+        throw new Error('证书别名不能为空');
+      }
+
+      let cleanName = path.basename(String(fileName || 'release.keystore').trim());
+      if (!cleanName.endsWith('.keystore') && !cleanName.endsWith('.jks')) {
+        cleanName += '.keystore';
+      }
+
+      const targetDir = resolveTargetDir(projectDir);
+      const validityDays = Math.max(1, parseInt(validityYears, 10) || 100) * 365;
+
+      const jdk = detectJdk();
+      const keytoolCmd = jdk.keytoolPath ? `"${jdk.keytoolPath}"` : 'keytool';
+
+      if (!fs.existsSync(CONFIG_DIR)) fs.mkdirSync(CONFIG_DIR, { recursive: true });
+      const shellAppDir = path.join(SHELL_DIR, 'app');
+      if (!fs.existsSync(shellAppDir)) fs.mkdirSync(shellAppDir, { recursive: true });
+
+      const configCertPath = path.join(CONFIG_DIR, cleanName);
+      const shellCertPath = path.join(shellAppDir, cleanName);
+
+      if (fs.existsSync(configCertPath)) {
+        try { fs.unlinkSync(configCertPath); } catch (e) {}
+      }
+
+      const cleanDname = String(dname || '').trim() || 'CN=Android App, OU=Dev, O=Organization, C=CN';
+
+      execSync(
+        `${keytoolCmd} -genkeypair -v -keystore "${configCertPath}" -alias "${cleanAlias}" -keyalg RSA -keysize 2048 -validity ${validityDays} -storepass "${cleanPass}" -keypass "${cleanPass}" -dname "${cleanDname}"`,
+        {
+          encoding: 'utf8',
+          stdio: ['pipe', 'pipe', 'pipe'],
+          timeout: KEYTOOL_TIMEOUT,
+          maxBuffer: 8 * 1024 * 1024
+        }
+      );
+
+      const buffer = fs.readFileSync(configCertPath);
+      fs.writeFileSync(shellCertPath, buffer);
+      if (targetDir && fs.existsSync(path.join(targetDir, 'config'))) {
+        fs.writeFileSync(path.join(targetDir, 'config', cleanName), buffer);
+      }
+
+      const sha1Res = extractSha1(configCertPath, cleanPass, { noCache: true });
+      const realSha1 = sha1Res.ok ? sha1Res.sha1 : '';
+
+      const autoCfg = {
+        storeFile: cleanName,
+        storePassword: cleanPass,
+        keyAlias: cleanAlias,
+        keyPassword: cleanPass,
+        isDefault: false,
+      };
+
+      try {
+        fs.writeFileSync(SIGNING_CONFIG_FILE, JSON.stringify(autoCfg, null, 2), 'utf8');
+        updateGradleSigning(autoCfg);
+        const currentPackCfg = getPackConfig(targetDir) || {};
+        currentPackCfg.signing = {
+          ...autoCfg,
+          sha1: realSha1,
+        };
+        savePackConfig(currentPackCfg, targetDir);
+      } catch (e) {}
+
+      return {
+        ok: true,
+        fileName: cleanName,
+        storePassword: cleanPass,
+        keyAlias: cleanAlias,
+        keyPassword: cleanPass,
+        sha1: realSha1
+      };
+    } catch (err) {
+      console.error('[ipc] generate_cert_file error:', err);
+      const msg = err.stderr ? err.stderr.toString() : err.message;
+      throw new Error(msg || '证书生成失败');
+    }
+  });
+
   ipcMain.handle('pick_project_directory', async (_event, args) => {
     try {
       const defaultPath = args?.defaultPath && fs.existsSync(args.defaultPath) ? args.defaultPath : undefined;

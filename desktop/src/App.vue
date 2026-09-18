@@ -99,6 +99,7 @@
             <!-- 上方：应用打包配置分块区域 -->
             <div class="config-section">
               <PackConfigCard
+                ref="packConfigCardRef"
                 v-model="packConfig"
                 :icon-preview-url="iconPreviewUrl"
                 :has-icon-updated="hasIconUpdated"
@@ -106,6 +107,7 @@
                 :is-saving="isSavingConfig"
                 :is-browsing="isBrowsingDir"
                 :is-verifying-cert="isVerifyingCert"
+                :is-generating-cert="isGeneratingCert"
                 @browse-dir="onBrowseDir"
                 @switch-project="onSwitchProject"
                 @save="onSaveConfig"
@@ -114,6 +116,7 @@
                 @reset-cert="onResetCert"
                 @select-cert="onSelectCert"
                 @upload-icon="onUploadIcon"
+                @create-cert="onCreateCert"
                 @copy="onCopyText"
               />
             </div>
@@ -230,6 +233,7 @@ import {
   getProjectIconApi,
   uploadProjectIconApi,
   importCertApi,
+  generateCertApi,
   verifyAndSaveCertApi,
   openDistDirApi,
   startOfflineBuildApi,
@@ -255,6 +259,8 @@ const isBuilding = ref(false)
 const isSavingConfig = ref(false)
 const isBrowsingDir = ref(false)
 const isVerifyingCert = ref(false)
+const isGeneratingCert = ref(false)
+const packConfigCardRef = ref(null)
 const iconPreviewUrl = ref('')
 const hasIconUpdated = ref(false)
 const toastMessage = ref('')
@@ -549,6 +555,36 @@ async function onSelectCert() {
   } catch (err) {
     console.error('选择证书异常:', err)
     showToast(`❌ 选择证书失败: ${err?.message ?? '未知错误'}`)
+  }
+}
+
+// 一键生成专属正式商用签名证书并自动绑定生效
+async function onCreateCert(payload) {
+  if (isGeneratingCert.value) return
+  isGeneratingCert.value = true
+  try {
+    const res = await generateCertApi({
+      ...payload,
+      projectDir: packConfig.projectDir
+    })
+
+    if (res?.ok) {
+      packConfig.storeFile = res.fileName
+      packConfig.storePassword = res.storePassword
+      packConfig.keyAlias = res.keyAlias
+      packConfig.keyPassword = res.keyPassword
+      packConfig.sha1 = res.sha1
+      packConfig.isDefaultCert = false
+
+      await onSaveConfig(true)
+      packConfigCardRef.value?.closeCreateCertModal()
+      showToast(`🎉 证书【${res.fileName}】生成成功并已自动生效！别名: ${res.keyAlias}`)
+    }
+  } catch (err) {
+    console.error('生成证书异常:', err)
+    showToast(`❌ 生成证书失败: ${err?.message ?? '未知错误'}`)
+  } finally {
+    isGeneratingCert.value = false
   }
 }
 

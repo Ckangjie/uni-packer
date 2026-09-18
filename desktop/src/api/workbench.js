@@ -93,6 +93,20 @@ export async function importCertApi(payload) {
 }
 
 /**
+ * 一键生成专属正式签名证书
+ * @param {object} payload { fileName, keyAlias, storePassword, validityYears, dname, projectDir }
+ * @returns {Promise<any>}
+ */
+export async function generateCertApi(payload) {
+  try {
+    return await bridge.invoke('generate_cert_file', payload)
+  } catch (err) {
+    console.error('生成证书失败:', err)
+    throw err
+  }
+}
+
+/**
  * 校验并提取证书真实 SHA1
  * @param {object} certPayload
  * @returns {Promise<any>}

@@ -103,12 +103,11 @@
       <div class="card-title">
         <div class="cert-title-wrap">
           <span>🔑 签名证书与构建参数</span>
-          <span :class="['badge', modelValue.isDefaultCert ? 'badge-ok' : 'badge-warn']">
-            {{ modelValue.isDefaultCert ? '默认调试' : '自定义发布' }}
-          </span>
+          <span v-if="modelValue.isDefaultCert" class="badge badge-ok">默认调试</span>
         </div>
         <div class="cert-actions">
           <button class="btn btn-secondary btn-sm" @click="handleSelectCert">📁 选择证书</button>
+          <button class="btn btn-secondary btn-sm" @click="isCreateCertModalOpen = true">⚡ 生成证书</button>
           <button class="btn btn-secondary btn-sm btn-save" :disabled="isSaving" @click="handleSave">
             <span v-if="isSaving" class="spinner"></span>
             <span>💾 {{ isSaving ? '保存中...' : '保存配置' }}</span>
@@ -193,11 +192,22 @@
         </button>
       </div>
     </div>
+
+    <!-- 一键生成证书弹窗 -->
+    <CreateCertModal
+      :is-open="isCreateCertModalOpen"
+      :default-alias="modelValue.keyAlias && modelValue.keyAlias !== 'test' ? modelValue.keyAlias : 'release'"
+      :default-file-name="modelValue.storeFile && modelValue.storeFile !== 'test.keystore' ? modelValue.storeFile : 'release.keystore'"
+      :is-generating="isGeneratingCert"
+      @close="isCreateCertModalOpen = false"
+      @submit="handleCreateCertSubmit"
+    />
   </div>
 </template>
 
 <script setup>
 import { ref, watch } from 'vue'
+import CreateCertModal from './CreateCertModal.vue'
 
 const props = defineProps({
   modelValue: {
@@ -227,6 +237,10 @@ const props = defineProps({
   isVerifyingCert: {
     type: Boolean,
     default: false
+  },
+  isGeneratingCert: {
+    type: Boolean,
+    default: false
   }
 })
 
@@ -240,9 +254,11 @@ const emit = defineEmits([
   'verify-cert',
   'reset-cert',
   'select-cert',
-  'upload-icon'
+  'upload-icon',
+  'create-cert'
 ])
 
+const isCreateCertModalOpen = ref(false)
 const iconInputRef = ref(null)
 const hasIconLoadError = ref(false)
 
@@ -317,6 +333,18 @@ function handleStartBuild() {
 function handleCopy(text) {
   if (text) emit('copy', text)
 }
+
+function handleCreateCertSubmit(payload) {
+  emit('create-cert', payload)
+}
+
+function closeCreateCertModal() {
+  isCreateCertModalOpen.value = false
+}
+
+defineExpose({
+  closeCreateCertModal
+})
 </script>
 
 <style lang="scss" scoped>
