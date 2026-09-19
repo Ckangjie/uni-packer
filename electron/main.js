@@ -19,13 +19,13 @@ function getWorkspaceDir() {
   if (app.isPackaged) {
     return path.dirname(process.execPath);
   }
-  return path.resolve(__dirname, '../..');
+  return path.resolve(__dirname, '..');
 }
 
 const WORKSPACE_DIR = getWorkspaceDir();
 
-// 统一配置与备份目录定位（位于工作区根目录 config/）
-let CONFIG_DIR = path.join(WORKSPACE_DIR, 'config');
+// 统一配置目录定位（位于工作区 src/config/）
+let CONFIG_DIR = path.join(WORKSPACE_DIR, 'src', 'config');
 if (!fs.existsSync(CONFIG_DIR)) {
   try {
     fs.mkdirSync(CONFIG_DIR, { recursive: true });
@@ -37,10 +37,8 @@ if (!fs.existsSync(CONFIG_DIR)) {
   }
 }
 
-const BACKUP_DIR = path.join(WORKSPACE_DIR, 'backups');
 const HISTORY_FILE = path.join(WORKSPACE_DIR, 'last-project.json');
 const SIGNING_CONFIG_FILE = path.join(CONFIG_DIR, 'signing-config.json');
-const PACK_CONFIG_FILE = path.join(CONFIG_DIR, 'pack-config.json');
 const PACKAGE_CACHE_FILE = path.join(CONFIG_DIR, 'package-cache.json');
 
 function getAllPackageCache() {
@@ -111,20 +109,6 @@ function resolveTargetDir(dir) {
   return tryDir(dir) || tryDir(activeProjectDir);
 }
 
-function backupFile(filePath) {
-  try {
-    if (!fs.existsSync(filePath)) return '';
-    const dayDir = path.join(BACKUP_DIR, new Date().toISOString().slice(0, 10));
-    if (!fs.existsSync(dayDir)) fs.mkdirSync(dayDir, { recursive: true });
-    const flat = path.resolve(filePath).replace(/[:\\/]+/g, '_').replace(/^_+/, '');
-    const bak = path.join(dayDir, `${flat}.bak`);
-    if (!fs.existsSync(bak)) fs.copyFileSync(filePath, bak);
-    return bak;
-  } catch (e) {
-    return '';
-  }
-}
-
 async function copyDirInto(targetDir, sourceDir) {
   if (fs.existsSync(targetDir)) {
     if (fs.promises.rm) await fs.promises.rm(targetDir, { recursive: true, force: true });
@@ -145,53 +129,36 @@ function escapeXml(value) {
 }
 
 // ── 签名与配置处理 ──────────────────────────────────────────────────
-function getPackConfig(targetDir) {
-  if (targetDir) {
-    const projectPackConfigFile = path.join(targetDir, 'config', 'pack-config.json');
-    if (fs.existsSync(projectPackConfigFile)) {
-      try {
-        return JSON.parse(fs.readFileSync(projectPackConfigFile, 'utf8'));
-      } catch (e) {}
-    }
-    return null;
-  }
-  if (fs.existsSync(PACK_CONFIG_FILE)) {
-    try {
-      return JSON.parse(fs.readFileSync(PACK_CONFIG_FILE, 'utf8'));
-    } catch (e) {}
-  }
-  return null;
-}
-
-function savePackConfig(cfg, targetDir) {
-  try {
-    if (targetDir) {
-      const projectConfigDir = path.join(targetDir, 'config');
-      if (!fs.existsSync(projectConfigDir)) fs.mkdirSync(projectConfigDir, { recursive: true });
-      fs.writeFileSync(path.join(projectConfigDir, 'pack-config.json'), JSON.stringify(cfg, null, 2), 'utf8');
-      return;
-    }
-    if (!fs.existsSync(CONFIG_DIR)) fs.mkdirSync(CONFIG_DIR, { recursive: true });
-    fs.writeFileSync(PACK_CONFIG_FILE, JSON.stringify(cfg, null, 2), 'utf8');
-  } catch (e) {}
-}
-
 function getSigningConfig(targetDir) {
   const emptyCfg = {
     storeFile: '',
     storePassword: '',
     keyAlias: '',
     keyPassword: '',
+    sha1: '',
     isDefault: false,
   };
   if (targetDir) {
-    const packCfg = getPackConfig(targetDir);
-    if (packCfg && packCfg.signing) {
-      return { ...emptyCfg, ...packCfg.signing };
+    const projectCertConfigFile = path.join(targetDir, 'config', 'signing-config.json');
+    if (fs.existsSync(projectCertConfigFile)) {
+      try {
+        return { ...emptyCfg, ...JSON.parse(fs.readFileSync(projectCertConfigFile, 'utf8')) };
+      } catch (e) {}
     }
-    return emptyCfg;
+  }
+  if (fs.existsSync(SIGNING_CONFIG_FILE)) {
+    try {
+      return { ...emptyCfg, ...JSON.parse(fs.readFileSync(SIGNING_CONFIG_FILE, 'utf8')) };
+    } catch (e) {}
   }
   return emptyCfg;
+}
+
+function saveSigningConfig(cfg) {
+  try {
+    if (!fs.existsSync(CONFIG_DIR)) fs.mkdirSync(CONFIG_DIR, { recursive: true });
+    fs.writeFileSync(SIGNING_CONFIG_FILE, JSON.stringify(cfg, null, 2), 'utf8');
+  } catch (e) {}
 }
 
 function resolveKeystorePath(storeFileName, targetDir) {
@@ -290,31 +257,17 @@ function extractSha1(storeFilePath, storePassword, options = {}) {
   }
 }
 
-const SECRETS_FILE = path.join(CONFIG_DIR, 'cert-secrets.json');
-
-function getSavedPasswords() {
+function getCandidatePasswords() {
+  const defaultPws = ['123456', 'android', '12345678', '123456789', 'admin', 'password', 'test', 'release'];
   try {
-    if (fs.existsSync(SECRETS_FILE)) {
-      const data = JSON.parse(fs.readFileSync(SECRETS_FILE, 'utf8'));
-      if (Array.isArray(data)) return data;
+    if (fs.existsSync(SIGNING_CONFIG_FILE)) {
+      const cfg = JSON.parse(fs.readFileSync(SIGNING_CONFIG_FILE, 'utf8'));
+      if (cfg?.storePassword && !defaultPws.includes(cfg.storePassword)) {
+        defaultPws.unshift(cfg.storePassword);
+      }
     }
   } catch (e) {}
-  return [];
-}
-
-function saveKnownPassword(password) {
-  if (!password || typeof password !== 'string') return;
-  const pw = password.trim();
-  if (!pw) return;
-  try {
-    const list = getSavedPasswords();
-    if (!list.includes(pw)) {
-      list.unshift(pw);
-      if (list.length > 50) list.length = 50;
-      if (!fs.existsSync(CONFIG_DIR)) fs.mkdirSync(CONFIG_DIR, { recursive: true });
-      fs.writeFileSync(SECRETS_FILE, JSON.stringify(list, null, 2), 'utf8');
-    }
-  } catch (e) {}
+  return defaultPws;
 }
 
 function probeKeystore(storeFilePath, extraCandidates = []) {
@@ -323,12 +276,10 @@ function probeKeystore(storeFilePath, extraCandidates = []) {
   }
 
   const baseName = path.basename(storeFilePath, path.extname(storeFilePath));
-  const savedPws = getSavedPasswords();
-  const defaultPws = ['123456', 'android', '12345678', '123456789', 'admin', 'password', 'test', 'release'];
+  const defaultPws = getCandidatePasswords();
 
   const candidatePool = Array.from(new Set([
     ...extraCandidates.filter(Boolean),
-    ...savedPws,
     ...defaultPws,
     baseName,
     ''
@@ -352,7 +303,6 @@ function probeKeystore(storeFilePath, extraCandidates = []) {
       if (sha1Match || aliasMatch) {
         const sha1 = sha1Match ? sha1Match[1].trim() : '';
         const keyAlias = aliasMatch ? aliasMatch[1].trim() : '';
-        if (pw) saveKnownPassword(pw);
         return {
           ok: true,
           storePassword: pw,
@@ -487,7 +437,6 @@ function syncPackageNameToManifest(projectDir, newPackageName) {
     const pkgRegex = /"(packagename|packageName|package)"\s*:\s*"[^"]*"/i;
     if (pkgRegex.test(raw)) {
       raw = raw.replace(pkgRegex, `"packagename": "${cleanPkg}"`);
-      backupFile(manifestPath);
       fs.writeFileSync(manifestPath, raw, 'utf8');
       return true;
     }
@@ -496,7 +445,6 @@ function syncPackageNameToManifest(projectDir, newPackageName) {
     const androidRegex = /("android"\s*:\s*\{)/;
     if (androidRegex.test(raw)) {
       raw = raw.replace(androidRegex, `$1\n                "packagename": "${cleanPkg}",`);
-      backupFile(manifestPath);
       fs.writeFileSync(manifestPath, raw, 'utf8');
       return true;
     }
@@ -505,7 +453,6 @@ function syncPackageNameToManifest(projectDir, newPackageName) {
     const distRegex = /("distribute"\s*:\s*\{)/;
     if (distRegex.test(raw)) {
       raw = raw.replace(distRegex, `$1\n            "android": {\n                "packagename": "${cleanPkg}"\n            },`);
-      backupFile(manifestPath);
       fs.writeFileSync(manifestPath, raw, 'utf8');
       return true;
     }
@@ -514,7 +461,6 @@ function syncPackageNameToManifest(projectDir, newPackageName) {
     const appPlusRegex = /("app-plus"\s*:\s*\{)/;
     if (appPlusRegex.test(raw)) {
       raw = raw.replace(appPlusRegex, `$1\n        "distribute": {\n            "android": {\n                "packagename": "${cleanPkg}"\n            }\n        },`);
-      backupFile(manifestPath);
       fs.writeFileSync(manifestPath, raw, 'utf8');
       return true;
     }
@@ -526,7 +472,6 @@ function syncPackageNameToManifest(projectDir, newPackageName) {
       if (!parsed['app-plus'].distribute) parsed['app-plus'].distribute = {};
       if (!parsed['app-plus'].distribute.android) parsed['app-plus'].distribute.android = {};
       parsed['app-plus'].distribute.android.packagename = cleanPkg;
-      backupFile(manifestPath);
       fs.writeFileSync(manifestPath, JSON.stringify(parsed, null, 2), 'utf8');
       return true;
     } catch (e) {
@@ -604,7 +549,6 @@ function applyFastSplashScreen(projectDir) {
     }
 
     if (next === null || next === raw) return true;
-    backupFile(manifestPath);
     fs.writeFileSync(manifestPath, next, 'utf8');
     return true;
   } catch (e) {
@@ -764,37 +708,17 @@ function findHBuilderXCli() {
   return null;
 }
 
-function determineBuildStrategy(projectDir, appid, options = {}) {
+function determineBuildStrategy(projectDir, appid) {
   const existingDist = findSourceDist(projectDir, appid);
   const hasExistingDist = Boolean(existingDist && fs.existsSync(existingDist));
 
-  // 1. 用户显式指定跳过前端构建
-  if (options.skipFeBuild) {
-    if (hasExistingDist) {
-      return { mode: 'SKIP_MANUAL', distPath: existingDist };
-    }
-    return {
-      mode: 'ERROR',
-      message: '已开启【跳过前端构建】，但在项目中未检测到任何已有离线资源（如 unpackage/resources 等目录）',
-    };
-  }
-
-  // 2. 检查是否有 CLI 构建脚本
+  // 1. 优先检查是否有 CLI 构建脚本并重新构建
   const cliCmd = detectCliBuildScript(projectDir);
   if (cliCmd) {
     return { mode: 'CLI', ...cliCmd };
   }
 
-  // 3. 无 CLI 脚本，但检测到已存在的离线资源包
-  if (hasExistingDist) {
-    return {
-      mode: 'SKIP_AUTO',
-      distPath: existingDist,
-      message: `未检测到 npm 离线打包脚本，但检测到已有离线资源: ${existingDist}，已自动复用并跳过编译`,
-    };
-  }
-
-  // 4. 检测 HBuilderX 本地 CLI，静默执行原生打包资源导出
+  // 2. 检测 HBuilderX 本地 CLI，执行静默打包构建导出
   const hxCli = findHBuilderXCli();
   if (hxCli) {
     return {
@@ -804,7 +728,16 @@ function determineBuildStrategy(projectDir, appid, options = {}) {
     };
   }
 
-  // 5. 均不满足
+  // 3. 无可用构建脚本时，若有已存在的离线资源包则兜底复用
+  if (hasExistingDist) {
+    return {
+      mode: 'SKIP_AUTO',
+      distPath: existingDist,
+      message: `未检测到前端构建脚本，自动使用已有离线资源: ${existingDist}`,
+    };
+  }
+
+  // 4. 均不满足
   return {
     mode: 'UNSUPPORTED',
     message: '未检测到可用前端构建脚本 (如 build:app) 或离线资源。\n建议在 HBuilderX 中点击【发行】->【原生App-本地打包】->【生成本地打包App资源】，或在 package.json 中配置构建脚本。',
@@ -1041,15 +974,7 @@ async function runBuildPipeline(sender, params) {
     });
   };
 
-  const skipFeBuild = Boolean(params?.skip_fe_build ?? params?.skipFeBuild);
-  const strategy = determineBuildStrategy(targetDir, appid, { skipFeBuild });
-
-  if (strategy.mode === 'SKIP_MANUAL') {
-    sendLog('💡 已开启【跳过前端构建】，直接复用已有离线资源...\n', 'info');
-    sendLog(`📂 目标资源目录: ${strategy.distPath}\n`);
-    await executeShellSteps(strategy.distPath);
-    return;
-  }
+  const strategy = determineBuildStrategy(targetDir, appid);
 
   if (strategy.mode === 'SKIP_AUTO') {
     sendLog(`💡 ${strategy.message}\n`, 'info');
@@ -1216,12 +1141,6 @@ function registerIpcHandlers() {
     try {
       const targetDir = resolveTargetDir(args?.projectDir);
       let appkey = '';
-      const packCfgForKey = getPackConfig(targetDir);
-      if (packCfgForKey?.dcloud?.appkey) {
-        appkey = packCfgForKey.dcloud.appkey;
-      } else if (packCfgForKey?.app_key) {
-        appkey = packCfgForKey.app_key;
-      }
 
       if (!targetDir) {
         const defaultCert = getSigningConfig();
@@ -1314,14 +1233,6 @@ function registerIpcHandlers() {
         }
       }
 
-      // 如果 manifest 中完全没有，再读取项目之前保存的 pack-config.json
-      if (!pkg) {
-        const packCfg = getPackConfig(targetDir);
-        if (packCfg?.package_name || packCfg?.packageName) {
-          pkg = (packCfg.package_name || packCfg.packageName).trim();
-        }
-      }
-
       if (pkg) {
         updateShellPackageName(pkg);
       }
@@ -1364,14 +1275,9 @@ function registerIpcHandlers() {
         ? Boolean(certConfig.isDefault)
         : Boolean(pkgCache?.is_default_cert);
 
-      const targetPackCfg = getPackConfig(targetDir) || {};
       const buildStrategy = determineBuildStrategy(targetDir, appid);
       const existingDist = findSourceDist(targetDir, appid);
       const hasExistingDist = Boolean(existingDist && fs.existsSync(existingDist));
-
-      const defaultSkipFeBuild = targetPackCfg.skip_fe_build !== undefined
-        ? Boolean(targetPackCfg.skip_fe_build)
-        : Boolean(!detectCliBuildScript(targetDir) && hasExistingDist);
 
       return {
         project_dir: targetDir,
@@ -1389,10 +1295,6 @@ function registerIpcHandlers() {
         sha1: resolvedSha1,
         is_default_cert: isDefaultCert,
         has_package_cache: Boolean(pkgCache),
-        skip_fe_build: defaultSkipFeBuild,
-        build_strategy_mode: buildStrategy.mode,
-        has_existing_dist: hasExistingDist,
-        existing_dist_path: hasExistingDist ? existingDist : '',
       };
     } catch (err) {
       console.error('[ipc] get_project_config error:', err);
@@ -1418,16 +1320,8 @@ function registerIpcHandlers() {
       const sha1 = cfg.sha1 ?? '';
       const isDefaultCert = Boolean(cfg.is_default_cert ?? cfg.isDefaultCert);
 
-      const currentPackCfg = getPackConfig(targetDir) || {};
-      currentPackCfg.dcloud = { ...(currentPackCfg.dcloud || {}), appkey };
-      if (packageName) {
-        currentPackCfg.package_name = packageName;
-      }
-      if (cfg.skip_fe_build !== undefined || cfg.skipFeBuild !== undefined) {
-        currentPackCfg.skip_fe_build = Boolean(cfg.skip_fe_build ?? cfg.skipFeBuild);
-      }
       if (storeFile || storePassword || keyAlias || sha1) {
-        currentPackCfg.signing = {
+        const signingCfg = {
           storeFile,
           storePassword,
           keyAlias,
@@ -1435,8 +1329,9 @@ function registerIpcHandlers() {
           sha1,
           isDefault: isDefaultCert
         };
+        saveSigningConfig(signingCfg);
+        updateGradleSigning(signingCfg);
       }
-      savePackConfig(currentPackCfg, targetDir);
 
       // 按包名持久化缓存完整配置
       if (packageName) {
@@ -1456,12 +1351,6 @@ function registerIpcHandlers() {
         syncPackageNameToManifest(targetDir, packageName);
         updateShellPackageName(packageName);
       }
-
-      const rcDir = path.join(targetDir, 'scripts');
-      if (!fs.existsSync(rcDir)) fs.mkdirSync(rcDir, { recursive: true });
-      const rcFile = path.join(rcDir, '.packrc.json');
-      backupFile(rcFile);
-      fs.writeFileSync(rcFile, JSON.stringify({ apkName }, null, 2), 'utf8');
 
       if (appName) {
         const stringsXmlPath = path.join(SHELL_DIR, 'app/src/main/res/values/strings.xml');
@@ -1536,7 +1425,6 @@ function registerIpcHandlers() {
       ];
       if (targetDir) {
         targetPaths.push(path.join(targetDir, 'src/static/logo.png'));
-        backupFile(path.join(targetDir, 'src/static/logo.png'));
       }
 
       for (const target of targetPaths) {
@@ -1592,22 +1480,15 @@ function registerIpcHandlers() {
         isDefault: false,
       };
 
-      if (pw) {
-        saveKnownPassword(pw);
-      }
-
-      fs.writeFileSync(SIGNING_CONFIG_FILE, JSON.stringify(newCfg, null, 2), 'utf8');
-      updateGradleSigning(newCfg);
-
-      const currentPackCfg = getPackConfig(targetDir) || {};
-      currentPackCfg.signing = {
+      const fullCfg = {
         ...newCfg,
         sha1: certResult.sha1,
       };
-      savePackConfig(currentPackCfg, targetDir);
+      saveSigningConfig(fullCfg);
+      updateGradleSigning(newCfg);
 
-      let curPkg = currentPackCfg.package_name || '';
-      if (!curPkg && targetDir) {
+      let curPkg = '';
+      if (targetDir) {
         const mPath = findManifestPath(targetDir);
         const mJson = parseManifestJson(mPath);
         curPkg = mJson?.['app-plus']?.distribute?.android?.packagename
@@ -1657,10 +1538,6 @@ function registerIpcHandlers() {
       if (!fs.existsSync(CONFIG_DIR)) fs.mkdirSync(CONFIG_DIR, { recursive: true });
       fs.writeFileSync(configCertPath, buffer);
 
-      if (targetDir && fs.existsSync(path.join(targetDir, 'config'))) {
-        fs.writeFileSync(path.join(targetDir, 'config', cleanName), buffer);
-      }
-
       // 导入后立即全自动嗅探密码、别名与 SHA1
       let projectAppId = '';
       if (targetDir) {
@@ -1680,14 +1557,11 @@ function registerIpcHandlers() {
         };
 
         try {
-          fs.writeFileSync(SIGNING_CONFIG_FILE, JSON.stringify(autoCfg, null, 2), 'utf8');
-          updateGradleSigning(autoCfg);
-          const currentPackCfg = getPackConfig(targetDir) || {};
-          currentPackCfg.signing = {
+          saveSigningConfig({
             ...autoCfg,
             sha1: probeRes.sha1,
-          };
-          savePackConfig(currentPackCfg, targetDir);
+          });
+          updateGradleSigning(autoCfg);
         } catch (e) {}
 
         return {

@@ -186,24 +186,6 @@
         </div>
       </div>
 
-      <!-- 离线资源构建策略控制 -->
-      <div class="build-option-row">
-        <label class="checkbox-label" title="开启后将直接复用项目 unpackage/resources 等目录下已有的离线打包资源，跳过 npm 编译">
-          <input
-            type="checkbox"
-            :checked="Boolean(modelValue.skipFeBuild)"
-            @change="updateField('skipFeBuild', $event.target.checked)"
-          />
-          <span class="checkbox-text">⚡ 跳过前端构建（直接复用已有离线打包资源）</span>
-        </label>
-        <span v-if="modelValue.hasExistingDist" class="badge badge-ok" :title="modelValue.existingDistPath">
-          ✓ 已就绪离线资源
-        </span>
-        <span v-else-if="modelValue.buildStrategyMode === 'CLI'" class="badge badge-info">
-          CLI 自动编译
-        </span>
-      </div>
-
       <div class="cert-sha1-box">
         <div class="cert-sha1-info">
           <div class="cert-sha1-label">当前证书 SHA1 指纹：</div>
@@ -544,40 +526,6 @@ function handleCopy(text) {
 
       @media (max-width: 600px) {
         grid-template-columns: 1fr;
-      }
-    }
-
-    .build-option-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-      margin-bottom: 10px;
-      padding: 6px 10px;
-      box-sizing: border-box;
-      background: rgba(255, 255, 255, 0.03);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      border-radius: 6px;
-
-      .checkbox-label {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        cursor: pointer;
-        font-size: 12px;
-        user-select: none;
-        color: var(--text-main);
-
-        input[type='checkbox'] {
-          cursor: pointer;
-          accent-color: var(--accent);
-        }
-      }
-
-      .badge {
-        font-size: 11px;
-        padding: 2px 6px;
-        box-sizing: border-box;
       }
     }
 

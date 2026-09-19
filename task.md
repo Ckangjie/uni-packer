@@ -46,5 +46,25 @@
   - [x] 主进程：`get_project_config` 提取到包名后，优先从包名缓存中回显配置
   - [x] 前端：`App.vue` 优化切换项目时的回显与重置逻辑
   - [x] 自查自检与构建验证通过
+- [x] 10. 移除“跳过前端构建”选项，每次执行重新构建
+  - [x] `PackConfigCard.vue`：移除跳过前端构建相关 UI 与样式
+  - [x] `App.vue`：移除 `skipFeBuild` 状态与参数传递
+  - [x] `main.js`：移除 `skip_fe_build` 逻辑，确保构建流水线每次重新构建
+  - [x] 自查自检与构建验证通过
+- [x] 11. 移除 cert-secrets.json 与 pack-config.json，统一使用 signing-config.json
+  - [x] `main.js`：移除 `SECRETS_FILE` 及 `saveKnownPassword`，嗅探密码统一使用内置常用池及现有配置
+  - [x] `main.js`：移除全局 `PACK_CONFIG_FILE` 读写，签名信息统一读写 `SIGNING_CONFIG_FILE`
+  - [x] 磁盘清理：删除 `config/cert-secrets.json` 和 `config/pack-config.json`
+  - [x] 自查自检与构建验证通过
+- [x] 12. 工程目录结构调整与备份机制移除
+  - [x] 移动 `config/` 与 `docs/` 到 `src/`
+  - [x] 删除 `backups/` 目录并移除主进程中所有备份文件生成逻辑
+  - [x] 平铺 `desktop/` 内部文件到工程根目录并删除 `desktop/`
+  - [x] 修正 `main.js` 中的工作区路径 `WORKSPACE_DIR` 与配置路径 `CONFIG_DIR`
+  - [x] 修正 `package.json` 中的 `pack:exe` 脚本
+  - [x] 自查自检与构建验证通过
+
+
+
 
 

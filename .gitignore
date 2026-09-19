@@ -6,5 +6,4 @@ last-project.json
 .DS_Store
 Thumbs.db
 *.exe
-backups
-config
+src/config/

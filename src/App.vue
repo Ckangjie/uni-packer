@@ -298,11 +298,7 @@ const packConfig = reactive({
   sha1: '',
   appKey: '',
   apkName: '',
-  isDefaultCert: false,
-  skipFeBuild: false,
-  buildStrategyMode: '',
-  hasExistingDist: false,
-  existingDistPath: ''
+  isDefaultCert: false
 })
 
 const canBuild = computed(() => {
@@ -479,10 +475,6 @@ async function loadConfigData(targetDir = '') {
       packConfig.isPackageExtracted = Boolean(data.is_package_extracted)
       packConfig.appId = data.app_id ?? ''
       packConfig.apkName = data.apk_name ?? ''
-      packConfig.skipFeBuild = Boolean(data.skip_fe_build)
-      packConfig.buildStrategyMode = data.build_strategy_mode ?? ''
-      packConfig.hasExistingDist = Boolean(data.has_existing_dist)
-      packConfig.existingDistPath = data.existing_dist_path ?? ''
 
       // 按照包名回显配置（优先使用包名缓存或项目已有配置）
       packConfig.storeFile = data.store_file ?? ''
@@ -550,7 +542,6 @@ async function onSaveConfig(isSilent = false) {
       app_key: packConfig.appKey,
       apk_name: packConfig.apkName,
       is_default_cert: packConfig.isDefaultCert,
-      skip_fe_build: packConfig.skipFeBuild,
       is_uni_app: true
     })
     if (!isSilent) {
@@ -753,8 +744,7 @@ async function onStartBuild() {
       apk_name: packConfig.apkName || null,
       package_name: packConfig.packageName,
       app_id: packConfig.appId,
-      app_key: packConfig.appKey,
-      skip_fe_build: packConfig.skipFeBuild
+      app_key: packConfig.appKey
     })
   } catch (err) {
     isBuilding.value = false
