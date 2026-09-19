@@ -55,7 +55,7 @@
           <div class="guide-sub-heading" style="margin-top: 12px;">📱 其他配套运行环境规范</div>
           • <b>Android SDK</b>：需包含 Platform 33+ 与 Build-Tools 33.0.2+（可直接在环境检测页一键补全）；<br />
           • <b>宿主壳工程</b>：协同 <code>uniapp-minimal-shell</code>，内置国内 Gradle 8.7 Wrapper；<br />
-          • <b>Node.js</b>：Node 18+ 环境，支持前端项目的 <code>build:app-plus</code>。
+          • <b>前端资源</b>：支持 CLI 命令行编译（<code>build:app-plus</code> / <code>build:app</code> 等），或直接复用 HBuilderX 本地打包导出的离线资源。
         </div>
       </details>
 

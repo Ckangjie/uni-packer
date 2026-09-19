@@ -78,12 +78,19 @@
           />
         </div>
         <div class="form-group">
-          <label>应用包名</label>
+          <label class="label-with-badge">
+            <span>应用包名 <span class="required-star">*</span></span>
+            <span v-if="modelValue.isPackageExtracted" class="badge badge-ok badge-sm">已提取 (只读)</span>
+            <span v-else class="badge badge-warn badge-sm">未提取 (可编辑)</span>
+          </label>
           <input
             type="text"
-            class="form-control"
+            class="form-control mono-input"
+            :class="{ 'input-readonly': modelValue.isPackageExtracted }"
             :value="modelValue.packageName"
-            readonly
+            :readonly="modelValue.isPackageExtracted"
+            :placeholder="modelValue.isPackageExtracted ? '' : '如: com.company.app (未提取到，请手动输入)'"
+            @input="updateField('packageName', $event.target.value.trim())"
           />
         </div>
         <div class="form-group">
@@ -107,7 +114,6 @@
         </div>
         <div class="cert-actions">
           <button class="btn btn-secondary btn-sm" @click="handleSelectCert">📁 选择证书</button>
-          <button class="btn btn-secondary btn-sm" @click="isCreateCertModalOpen = true">⚡ 生成证书</button>
           <button class="btn btn-secondary btn-sm btn-save" :disabled="isSaving" @click="handleSave">
             <span v-if="isSaving" class="spinner"></span>
             <span>💾 {{ isSaving ? '保存中...' : '保存配置' }}</span>
@@ -117,7 +123,7 @@
 
       <div class="cert-active-file">
         <span>当前生效文件:</span>
-        <code>{{ modelValue.storeFile || 'test.keystore' }}</code>
+        <code :class="{ 'text-muted': !modelValue.storeFile }">{{ modelValue.storeFile || '未配置 (请选择证书)' }}</code>
       </div>
 
       <div class="cert-inputs-grid">
@@ -127,7 +133,7 @@
             type="text"
             class="form-control mono-input"
             :value="modelValue.storePassword"
-            placeholder="如：123456 (失焦自动校验)"
+            placeholder="输入密码 (失焦后自动提取别名与SHA1)"
             @input="updateField('storePassword', $event.target.value)"
             @blur="onPasswordBlurOrEnter"
             @keydown.enter="onPasswordBlurOrEnter"
@@ -139,7 +145,7 @@
             type="text"
             class="form-control mono-input"
             :value="modelValue.keyAlias"
-            placeholder="自动提取或手动输入"
+            :placeholder="modelValue.appId ? '默认: ' + modelValue.appId : '输入别名'"
             @input="updateField('keyAlias', $event.target.value)"
             @keydown.enter="handleVerifyCert"
           />
@@ -180,6 +186,24 @@
         </div>
       </div>
 
+      <!-- 离线资源构建策略控制 -->
+      <div class="build-option-row">
+        <label class="checkbox-label" title="开启后将直接复用项目 unpackage/resources 等目录下已有的离线打包资源，跳过 npm 编译">
+          <input
+            type="checkbox"
+            :checked="Boolean(modelValue.skipFeBuild)"
+            @change="updateField('skipFeBuild', $event.target.checked)"
+          />
+          <span class="checkbox-text">⚡ 跳过前端构建（直接复用已有离线打包资源）</span>
+        </label>
+        <span v-if="modelValue.hasExistingDist" class="badge badge-ok" :title="modelValue.existingDistPath">
+          ✓ 已就绪离线资源
+        </span>
+        <span v-else-if="modelValue.buildStrategyMode === 'CLI'" class="badge badge-info">
+          CLI 自动编译
+        </span>
+      </div>
+
       <div class="cert-sha1-box">
         <div class="cert-sha1-info">
           <div class="cert-sha1-label">当前证书 SHA1 指纹：</div>
@@ -193,21 +217,11 @@
       </div>
     </div>
 
-    <!-- 一键生成证书弹窗 -->
-    <CreateCertModal
-      :is-open="isCreateCertModalOpen"
-      :default-alias="modelValue.keyAlias && modelValue.keyAlias !== 'test' ? modelValue.keyAlias : 'release'"
-      :default-file-name="modelValue.storeFile && modelValue.storeFile !== 'test.keystore' ? modelValue.storeFile : 'release.keystore'"
-      :is-generating="isGeneratingCert"
-      @close="isCreateCertModalOpen = false"
-      @submit="handleCreateCertSubmit"
-    />
   </div>
 </template>
 
 <script setup>
 import { ref, watch } from 'vue'
-import CreateCertModal from './CreateCertModal.vue'
 
 const props = defineProps({
   modelValue: {
@@ -237,10 +251,6 @@ const props = defineProps({
   isVerifyingCert: {
     type: Boolean,
     default: false
-  },
-  isGeneratingCert: {
-    type: Boolean,
-    default: false
   }
 })
 
@@ -254,11 +264,9 @@ const emit = defineEmits([
   'verify-cert',
   'reset-cert',
   'select-cert',
-  'upload-icon',
-  'create-cert'
+  'upload-icon'
 ])
 
-const isCreateCertModalOpen = ref(false)
 const iconInputRef = ref(null)
 const hasIconLoadError = ref(false)
 
@@ -314,8 +322,9 @@ function handleVerifyCert() {
 function onPasswordBlurOrEnter() {
   const currentPw = props.modelValue.storePassword?.trim()
   if (!currentPw) return
+  if (!props.modelValue.storeFile) return
   if (props.isVerifyingCert) return
-  if (currentPw === lastVerifiedPassword && props.modelValue.keyAlias && props.modelValue.sha1) {
+  if (currentPw === lastVerifiedPassword && props.modelValue.sha1) {
     return
   }
   lastVerifiedPassword = currentPw
@@ -333,18 +342,6 @@ function handleStartBuild() {
 function handleCopy(text) {
   if (text) emit('copy', text)
 }
-
-function handleCreateCertSubmit(payload) {
-  emit('create-cert', payload)
-}
-
-function closeCreateCertModal() {
-  isCreateCertModalOpen.value = false
-}
-
-defineExpose({
-  closeCreateCertModal
-})
 </script>
 
 <style lang="scss" scoped>
@@ -550,6 +547,40 @@ defineExpose({
       }
     }
 
+    .build-option-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 10px;
+      padding: 6px 10px;
+      box-sizing: border-box;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 6px;
+
+      .checkbox-label {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        cursor: pointer;
+        font-size: 12px;
+        user-select: none;
+        color: var(--text-main);
+
+        input[type='checkbox'] {
+          cursor: pointer;
+          accent-color: var(--accent);
+        }
+      }
+
+      .badge {
+        font-size: 11px;
+        padding: 2px 6px;
+        box-sizing: border-box;
+      }
+    }
+
     .cert-sha1-box {
       margin-top: auto;
       background: rgba(0, 0, 0, 0.25);
@@ -582,6 +613,11 @@ defineExpose({
     }
   }
 
+  .required-star {
+    color: #f85149;
+    margin-left: 2px;
+  }
+
   .mono-input {
     font-family: Consolas, monospace;
     font-size: 12px;
@@ -589,7 +625,29 @@ defineExpose({
 
   .btn-sm {
     padding: 2px 8px;
+    box-sizing: border-box;
     font-size: 11px;
+  }
+
+  .label-with-badge {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 6px;
+
+    .badge-sm {
+      font-size: 11px;
+      padding: 1px 6px;
+      box-sizing: border-box;
+      font-weight: 500;
+    }
+  }
+
+  .input-readonly {
+    background: rgba(255, 255, 255, 0.04) !important;
+    color: var(--text-muted) !important;
+    cursor: default;
+    user-select: all;
   }
 }
 </style>

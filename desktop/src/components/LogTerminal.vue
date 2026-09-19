@@ -14,7 +14,7 @@
         </button>
         <button
           class="btn btn-primary btn-build"
-          :disabled="isBuilding || !canBuild"
+          :disabled="isBuilding"
           @click="handleStartBuild"
         >
           <span v-if="isBuilding" class="spinner"></span>

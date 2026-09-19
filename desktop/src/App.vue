@@ -101,14 +101,14 @@
             <div class="config-section">
               <PackConfigCard
                 ref="packConfigCardRef"
-                v-model="packConfig"
+                :model-value="packConfig"
                 :icon-preview-url="iconPreviewUrl"
                 :has-icon-updated="hasIconUpdated"
                 :is-building="isBuilding"
                 :is-saving="isSavingConfig"
                 :is-browsing="isBrowsingDir"
                 :is-verifying-cert="isVerifyingCert"
-                :is-generating-cert="isGeneratingCert"
+                @update:model-value="val => Object.assign(packConfig, val)"
                 @browse-dir="onBrowseDir"
                 @switch-project="onSwitchProject"
                 @save="onSaveConfig"
@@ -117,7 +117,6 @@
                 @reset-cert="onResetCert"
                 @select-cert="onSelectCert"
                 @upload-icon="onUploadIcon"
-                @create-cert="onCreateCert"
                 @copy="onCopyText"
               />
             </div>
@@ -127,7 +126,7 @@
               <LogTerminal
                 ref="terminalRef"
                 :is-building="isBuilding"
-                :can-build="Boolean(packConfig.projectDir)"
+                :can-build="canBuild"
                 @start-build="onStartBuild"
                 @clear="onClearLogs"
               />
@@ -146,6 +145,11 @@
                 <div v-if="buildResult.isSuccess" class="result-actions">
                   <button class="btn btn-primary btn-sm" @click="onOpenDistDir(buildResult.apkPath)">
                     📂 打开所在目录
+                  </button>
+                </div>
+                <div v-else class="result-actions">
+                  <button class="btn btn-secondary btn-sm" @click="onCopyErrorLog">
+                    📋 复制错误日志
                   </button>
                 </div>
               </div>
@@ -234,7 +238,6 @@ import {
   getProjectIconApi,
   uploadProjectIconApi,
   importCertApi,
-  generateCertApi,
   verifyAndSaveCertApi,
   openDistDirApi,
   startOfflineBuildApi,
@@ -260,7 +263,6 @@ const isBuilding = ref(false)
 const isSavingConfig = ref(false)
 const isBrowsingDir = ref(false)
 const isVerifyingCert = ref(false)
-const isGeneratingCert = ref(false)
 const packConfigCardRef = ref(null)
 const packGuideCardRef = ref(null)
 const iconPreviewUrl = ref('')
@@ -279,24 +281,42 @@ const envData = reactive({
   shell: { ok: false, path: '' },
   gradle: { ok: false, path: '' },
   aar: { ok: false, files: [] },
-  cert: { ok: false, sha1: '' },
   overallOk: false
 })
 
-let packConfig = reactive({
+const packConfig = reactive({
   projectDir: '',
   appName: '',
   versionName: '',
   packageName: '',
+  isPackageExtracted: false,
   appId: '',
-  storeFile: 'test.keystore',
+  storeFile: '',
   storePassword: '',
-  keyAlias: 'test',
+  keyAlias: '',
   keyPassword: '',
   sha1: '',
   appKey: '',
   apkName: '',
-  isDefaultCert: true
+  isDefaultCert: false,
+  skipFeBuild: false,
+  buildStrategyMode: '',
+  hasExistingDist: false,
+  existingDistPath: ''
+})
+
+const canBuild = computed(() => {
+  const effectiveKeyPassword = packConfig.keyPassword?.trim() || packConfig.storePassword?.trim()
+  return Boolean(
+    packConfig.projectDir?.trim() &&
+    packConfig.packageName?.trim() &&
+    packConfig.appKey?.trim() &&
+    packConfig.storeFile?.trim() &&
+    packConfig.storePassword?.trim() &&
+    packConfig.keyAlias?.trim() &&
+    effectiveKeyPassword &&
+    packConfig.sha1?.trim()
+  )
 })
 
 const buildResult = ref(null)
@@ -387,7 +407,6 @@ async function loadEnvData() {
       envData.shell = data.shell ?? { ok: false, path: '' }
       envData.gradle = data.gradle ?? { ok: false, path: '' }
       envData.aar = data.aar ?? { ok: false, files: [] }
-      envData.cert = data.cert ?? { ok: false, sha1: '' }
       envData.overallOk = Boolean(data.overall_ok)
       showToast('✅ 底层环境探测已刷新')
     }
@@ -445,24 +464,43 @@ async function onUploadIcon(file) {
 async function loadConfigData(targetDir = '') {
   try {
     const pDir = (targetDir || packConfig.projectDir || '').trim()
+    const oldPkg = (packConfig.packageName || '').trim()
     const data = await fetchProjectConfig(pDir)
     if (data) {
+      const newPkg = (data.package_name || '').trim()
+
       if (data.project_dir) {
         packConfig.projectDir = data.project_dir
         localStorage.setItem('uni_pack_project_dir', data.project_dir)
       }
       packConfig.appName = data.app_name ?? ''
       packConfig.versionName = data.version_name ?? ''
-      packConfig.packageName = data.package_name ?? ''
+      packConfig.packageName = newPkg
+      packConfig.isPackageExtracted = Boolean(data.is_package_extracted)
       packConfig.appId = data.app_id ?? ''
-      packConfig.appKey = data.app_key ?? ''
       packConfig.apkName = data.apk_name ?? ''
-      packConfig.storeFile = data.store_file ?? 'test.keystore'
+      packConfig.skipFeBuild = Boolean(data.skip_fe_build)
+      packConfig.buildStrategyMode = data.build_strategy_mode ?? ''
+      packConfig.hasExistingDist = Boolean(data.has_existing_dist)
+      packConfig.existingDistPath = data.existing_dist_path ?? ''
+
+      // 按照包名回显配置（优先使用包名缓存或项目已有配置）
+      packConfig.storeFile = data.store_file ?? ''
       packConfig.storePassword = data.store_password ?? ''
-      packConfig.keyAlias = data.key_alias ?? 'test'
+      packConfig.keyAlias = (data.key_alias && data.key_alias !== 'test') ? data.key_alias : (data.app_id || '')
       packConfig.keyPassword = data.key_password ?? ''
       packConfig.sha1 = data.sha1 ?? ''
+      packConfig.appKey = data.app_key ?? ''
       packConfig.isDefaultCert = Boolean(data.is_default_cert)
+
+      const isDifferentProject = oldPkg && oldPkg !== newPkg
+      if (isDifferentProject) {
+        if (data.has_package_cache) {
+          showToast(`📦 检测到包名【${newPkg}】，已自动恢复历史打包配置`)
+        } else {
+          showToast('🔄 检测到新项目，未匹配到历史配置')
+        }
+      }
     }
 
     await loadIcon(packConfig.projectDir)
@@ -512,6 +550,7 @@ async function onSaveConfig(isSilent = false) {
       app_key: packConfig.appKey,
       apk_name: packConfig.apkName,
       is_default_cert: packConfig.isDefaultCert,
+      skip_fe_build: packConfig.skipFeBuild,
       is_uni_app: true
     })
     if (!isSilent) {
@@ -568,39 +607,12 @@ async function onSelectCert() {
   }
 }
 
-// 一键生成专属正式商用签名证书并自动绑定生效
-async function onCreateCert(payload) {
-  if (isGeneratingCert.value) return
-  isGeneratingCert.value = true
-  try {
-    const res = await generateCertApi({
-      ...payload,
-      projectDir: packConfig.projectDir
-    })
-
-    if (res?.ok) {
-      packConfig.storeFile = res.fileName
-      packConfig.storePassword = res.storePassword
-      packConfig.keyAlias = res.keyAlias
-      packConfig.keyPassword = res.keyPassword
-      packConfig.sha1 = res.sha1
-      packConfig.isDefaultCert = false
-
-      await onSaveConfig(true)
-      packConfigCardRef.value?.closeCreateCertModal()
-      showToast(`🎉 证书【${res.fileName}】生成成功并已自动生效！别名: ${res.keyAlias}`)
-    }
-  } catch (err) {
-    console.error('生成证书异常:', err)
-    showToast(`❌ 生成证书失败: ${err?.message ?? '未知错误'}`)
-  } finally {
-    isGeneratingCert.value = false
-  }
-}
-
-// 校验证书密码 (别名若未输入将全自动探测并回填)
+// 校验证书密码并全自动提取别名、别名密码与 SHA1
 async function onVerifyCert() {
   if (isVerifyingCert.value) return
+  if (!packConfig.storeFile?.trim()) {
+    return showToast('⚠️ 请先上传或选择证书文件')
+  }
   if (!packConfig.storePassword?.trim()) {
     return showToast('⚠️ 请输入证书密码')
   }
@@ -611,6 +623,7 @@ async function onVerifyCert() {
       storeFile: packConfig.storeFile,
       storePassword: packConfig.storePassword.trim(),
       keyAlias: packConfig.keyAlias?.trim() || '',
+      keyPassword: packConfig.keyPassword?.trim() || '',
       projectDir: packConfig.projectDir
     })
     if (res?.success) {
@@ -621,8 +634,8 @@ async function onVerifyCert() {
       if (res.keyPassword) {
         packConfig.keyPassword = res.keyPassword
       }
-      await onSaveConfig()
-      showToast(`✅ 校验通过！真实别名【${packConfig.keyAlias}】与 SHA1 已自动生效`)
+      await onSaveConfig(true)
+      showToast(`🎉 证书解析成功！已自动填充别名【${packConfig.keyAlias}】、密码与 SHA1`)
     } else {
       showToast(`❌ 证书校验失败: ${res?.error || '密码可能不正确'}`)
     }
@@ -659,6 +672,18 @@ async function onOpenDistDir(customPath = '') {
   }
 }
 
+// 复制打包失败日志
+function onCopyErrorLog() {
+  const fullLog = terminalRef.value?.getLogText?.() || ''
+  const errorTitle = buildResult.value?.message ? `【失败原因】: ${buildResult.value.message}\n\n` : ''
+  const contentToCopy = (errorTitle + fullLog).trim()
+  if (!contentToCopy) {
+    showToast('⚠️ 暂无日志可复制')
+    return
+  }
+  onCopyText(contentToCopy)
+}
+
 // 尝试从当前终端日志恢复构建结果 (避免页面热重载/刷新后状态丢失)
 function tryRecoverResultFromLog() {
   if (buildResult.value) return
@@ -678,6 +703,42 @@ function tryRecoverResultFromLog() {
 // 启动离线打包流水线
 async function onStartBuild() {
   if (isBuilding.value) return
+  if (!packConfig.projectDir?.trim()) {
+    showToast('⚠️ 请先选择目标 uni-app 工程目录')
+    return
+  }
+  if (!packConfig.packageName?.trim()) {
+    showToast('⚠️ 打包必须设置应用包名 (PackageName)')
+    return
+  }
+  if (!packConfig.appKey?.trim()) {
+    showToast('⚠️ 打包必须设置 DCloud 离线 AppKey')
+    return
+  }
+  if (!packConfig.storeFile?.trim()) {
+    showToast('⚠️ 打包必须提供签名证书文件')
+    return
+  }
+  if (!packConfig.storePassword?.trim()) {
+    showToast('⚠️ 打包必须提供证书密码')
+    return
+  }
+  if (!packConfig.keyAlias?.trim()) {
+    showToast('⚠️ 打包必须提供证书别名')
+    return
+  }
+  if (!packConfig.keyPassword?.trim()) {
+    if (packConfig.storePassword?.trim()) {
+      packConfig.keyPassword = packConfig.storePassword.trim()
+    } else {
+      showToast('⚠️ 打包必须提供别名密码')
+      return
+    }
+  }
+  if (!packConfig.sha1?.trim()) {
+    showToast('⚠️ 打包必须提供证书 SHA1 指纹（请先校验证书）')
+    return
+  }
   isBuilding.value = true
   buildResult.value = null
 
@@ -692,7 +753,8 @@ async function onStartBuild() {
       apk_name: packConfig.apkName || null,
       package_name: packConfig.packageName,
       app_id: packConfig.appId,
-      app_key: packConfig.appKey
+      app_key: packConfig.appKey,
+      skip_fe_build: packConfig.skipFeBuild
     })
   } catch (err) {
     isBuilding.value = false

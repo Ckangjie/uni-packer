@@ -138,21 +138,6 @@
           </span>
         </div>
       </div>
-
-      <!-- 签名证书 SHA1 -->
-      <div class="status-item">
-        <div class="status-info">
-          <div class="status-label">签名证书 SHA1</div>
-          <div class="status-detail">
-            <span class="copyable" @click="handleCopy(certSha1)">
-              {{ certSha1 || '未生成/未就绪' }}
-            </span>
-          </div>
-        </div>
-        <span :class="['badge', isCertReady ? 'badge-ok' : 'badge-warn']">
-          {{ isCertReady ? '就绪' : '未就绪' }}
-        </span>
-      </div>
     </div>
   </div>
 </template>
@@ -246,14 +231,6 @@ const aarDetailText = computed(() => {
     return `已检测到 ${aarCount.value} 个核心库 (app/libs/*.aar)`
   }
   return '⚠️ 缺失核心库，可一键自动补全'
-})
-
-const certSha1 = computed(() => {
-  return props.envData?.cert?.sha1 ?? ''
-})
-
-const isCertReady = computed(() => {
-  return Boolean(props.envData?.cert?.ok || props.envData?.cert?.sha1)
 })
 
 const isAllReady = computed(() => {
