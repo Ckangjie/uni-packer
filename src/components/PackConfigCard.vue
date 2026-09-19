@@ -9,7 +9,10 @@
       <!-- 目标工程路径选择 -->
       <div class="project-picker-box">
         <div class="picker-header">
-          <label>📁 目标 uni-app 项目目录</label>
+          <div class="picker-label-wrap">
+            <label>📁 目标 uni-app 项目目录</label>
+            <span v-if="modelValue.projectDir && modelValue.isUniApp === false" class="tag-not-uniapp">非 uni-app 工程</span>
+          </div>
           <span class="picker-tip">自动识别包管理器</span>
         </div>
         <div class="picker-row">
@@ -371,11 +374,30 @@ function handleCopy(text) {
         align-items: center;
         margin-bottom: 6px;
 
+        .picker-label-wrap {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
         label {
           margin: 0;
           color: #58a6ff;
           font-weight: 600;
           font-size: 12px;
+        }
+
+        .tag-not-uniapp {
+          display: inline-flex;
+          align-items: center;
+          padding: 1px 6px;
+          font-size: 11px;
+          color: #f85149;
+          background: rgba(248, 81, 73, 0.12);
+          border: 1px solid rgba(248, 81, 73, 0.35);
+          border-radius: 4px;
+          box-sizing: border-box;
+          line-height: 1.2;
         }
 
         .picker-tip {

@@ -63,6 +63,13 @@
   - [x] 修正 `main.js` 中的工作区路径 `WORKSPACE_DIR` 与配置路径 `CONFIG_DIR`
   - [x] 修正 `package.json` 中的 `pack:exe` 脚本
   - [x] 自查自检与构建验证通过
+- [x] 13. 选择工程目录时判断是否为 uni-app 工程（Tag 提示 + 隐藏打包按钮）
+  - [x] `electron/main.js`：移除弹窗提示，非 uni-app 正常返回 `is_uni_app: false`，不阻止路径回传
+  - [x] `src/components/PackConfigCard.vue`：在目录标签旁红框处添加 `非 uni-app 工程` Tag 提示
+  - [x] `src/components/LogTerminal.vue`：非 uni-app 工程时直接隐藏打包按钮
+  - [x] `src/App.vue`：响应式联动 `packConfig.isUniApp`，清空非法项目配置
+  - [x] 自查自检与构建验证通过
+
 
 
 

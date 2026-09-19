@@ -127,6 +127,7 @@
                 ref="terminalRef"
                 :is-building="isBuilding"
                 :can-build="canBuild"
+                :is-uni-app="packConfig.isUniApp"
                 @start-build="onStartBuild"
                 @clear="onClearLogs"
               />
@@ -298,10 +299,12 @@ const packConfig = reactive({
   sha1: '',
   appKey: '',
   apkName: '',
-  isDefaultCert: false
+  isDefaultCert: false,
+  isUniApp: true
 })
 
 const canBuild = computed(() => {
+  if (packConfig.isUniApp === false) return false
   const effectiveKeyPassword = packConfig.keyPassword?.trim() || packConfig.storePassword?.trim()
   return Boolean(
     packConfig.projectDir?.trim() &&
@@ -462,6 +465,20 @@ async function loadConfigData(targetDir = '') {
     const pDir = (targetDir || packConfig.projectDir || '').trim()
     const oldPkg = (packConfig.packageName || '').trim()
     const data = await fetchProjectConfig(pDir)
+    if (data && data.is_uni_app === false) {
+      packConfig.isUniApp = false
+      packConfig.projectDir = pDir
+      packConfig.appName = ''
+      packConfig.versionName = ''
+      packConfig.packageName = ''
+      packConfig.isPackageExtracted = false
+      packConfig.appId = ''
+      packConfig.apkName = ''
+      iconPreviewUrl.value = ''
+      return false
+    }
+
+    packConfig.isUniApp = true
     if (data) {
       const newPkg = (data.package_name || '').trim()
 
@@ -496,8 +513,10 @@ async function loadConfigData(targetDir = '') {
     }
 
     await loadIcon(packConfig.projectDir)
+    return true
   } catch (err) {
     console.error('载入工程配置失败:', err)
+    return false
   }
 }
 
@@ -508,8 +527,10 @@ async function onBrowseDir() {
     const dir = await pickDirectory(packConfig.projectDir)
     if (dir) {
       packConfig.projectDir = dir
-      await loadConfigData(dir)
-      showToast('✅ 已切换至新工程')
+      const ok = await loadConfigData(dir)
+      if (ok) {
+        showToast('✅ 已切换至新工程')
+      }
     }
   } catch (err) {
     showToast(`⚠️ 唤起选择器失败: ${err?.message ?? '未知错误'}`)
@@ -521,6 +542,7 @@ async function onBrowseDir() {
 // 手动输入路径切换
 async function onSwitchProject(dir) {
   if (!dir) return
+  packConfig.projectDir = dir
   await loadConfigData(dir)
 }
 

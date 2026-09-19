@@ -13,6 +13,7 @@
           清空
         </button>
         <button
+          v-if="isUniApp !== false"
           class="btn btn-primary btn-build"
           :disabled="isBuilding"
           @click="handleStartBuild"
@@ -44,6 +45,10 @@ defineProps({
   canBuild: {
     type: Boolean,
     default: false
+  },
+  isUniApp: {
+    type: Boolean,
+    default: true
   }
 })
 

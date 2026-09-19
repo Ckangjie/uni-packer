@@ -339,6 +339,63 @@ function updateGradleSigning(signingCfg) {
 }
 
 // ── 工程辅助解析 ────────────────────────────────────────────────────
+function isUniAppProject(projectDir) {
+  if (!projectDir || typeof projectDir !== 'string') return false;
+  const resolved = path.resolve(projectDir);
+  if (!fs.existsSync(resolved)) return false;
+
+  // 1. 检查是否存在 manifest.json (根目录或 src/ 目录下)
+  const manifestCandidates = [
+    path.join(resolved, 'manifest.json'),
+    path.join(resolved, 'src/manifest.json'),
+  ];
+  for (const p of manifestCandidates) {
+    if (fs.existsSync(p)) {
+      try {
+        const raw = fs.readFileSync(p, 'utf8');
+        if (raw.includes('"appid"') || raw.includes('"app-plus"') || raw.includes('"mp-') || raw.includes('"quickapp"') || raw.includes('"vueVersion"') || raw.includes('"uni-app"')) {
+          return true;
+        }
+      } catch (e) {
+        return true;
+      }
+    }
+  }
+
+  // 2. 检查是否存在 pages.json (根目录或 src/ 目录下)
+  const pagesCandidates = [
+    path.join(resolved, 'pages.json'),
+    path.join(resolved, 'src/pages.json'),
+  ];
+  for (const p of pagesCandidates) {
+    if (fs.existsSync(p)) return true;
+  }
+
+  // 3. 检查常见子目录结构 (如 apps/xxx, packages/xxx, client/xxx)
+  const candidateSubDirs = ['apps', 'packages', 'client', 'app'];
+  for (const sub of candidateSubDirs) {
+    const subDirPath = path.join(resolved, sub);
+    if (fs.existsSync(subDirPath) && fs.statSync(subDirPath).isDirectory()) {
+      try {
+        const subEntries = fs.readdirSync(subDirPath, { withFileTypes: true });
+        for (const entry of subEntries) {
+          if (entry.isDirectory()) {
+            const p1 = path.join(subDirPath, entry.name, 'manifest.json');
+            const p2 = path.join(subDirPath, entry.name, 'src/manifest.json');
+            const p3 = path.join(subDirPath, entry.name, 'pages.json');
+            const p4 = path.join(subDirPath, entry.name, 'src/pages.json');
+            if (fs.existsSync(p1) || fs.existsSync(p2) || fs.existsSync(p3) || fs.existsSync(p4)) {
+              return true;
+            }
+          }
+        }
+      } catch (e) {}
+    }
+  }
+
+  return false;
+}
+
 function findManifestPath(projectDir) {
   if (!projectDir) return null;
   const resolved = path.resolve(projectDir);
@@ -368,7 +425,7 @@ function findManifestPath(projectDir) {
     }
   }
 
-  return cliManifest;
+  return null;
 }
 
 function detectShellPackageName() {
@@ -1147,6 +1204,7 @@ function registerIpcHandlers() {
         const certFile = resolveKeystorePath(defaultCert.storeFile);
         const certRes = extractSha1(certFile, defaultCert.storePassword);
         return {
+          is_uni_app: true,
           project_dir: '',
           app_name: 'uni-app应用',
           version_name: '1.0.0',
@@ -1160,6 +1218,14 @@ function registerIpcHandlers() {
           key_password: defaultCert.keyPassword,
           sha1: certRes.sha1 || '',
           is_default_cert: Boolean(defaultCert.isDefault),
+        };
+      }
+
+      if (!isUniAppProject(targetDir)) {
+        return {
+          is_uni_app: false,
+          message: '所选目录不是有效的 uni-app 工程（未检测到 manifest.json 或 pages.json）',
+          project_dir: targetDir,
         };
       }
 
@@ -1295,6 +1361,7 @@ function registerIpcHandlers() {
         sha1: resolvedSha1,
         is_default_cert: isDefaultCert,
         has_package_cache: Boolean(pkgCache),
+        is_uni_app: true,
       };
     } catch (err) {
       console.error('[ipc] get_project_config error:', err);
