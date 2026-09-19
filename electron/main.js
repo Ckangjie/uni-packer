@@ -2073,7 +2073,7 @@ function downloadFileWithProgress(url, destPath, onProgress, maxRedirects = 5) {
     }
 
     const client = url.startsWith('https') ? require('https') : require('http');
-    const req = client.get(url, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) UniAppPackDesktop/1.0' } }, (res) => {
+    const req = client.get(url, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) UniOfflinePack/1.0' } }, (res) => {
       if ([301, 302, 303, 307, 308].includes(res.statusCode) && res.headers.location) {
         res.resume();
         const redirectUrl = new URL(res.headers.location, url).toString();

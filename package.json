@@ -23,7 +23,7 @@
   },
   "build": {
     "appId": "com.boil.uniapppackdesktop",
-    "productName": "UniAppPackDesktop",
+    "productName": "UniOfflinePack",
     "directories": {
       "output": "release"
     },
@@ -37,7 +37,7 @@
         "portable"
       ],
       "signAndEditExecutable": false,
-      "artifactName": "UniAppPackDesktop.exe"
+      "artifactName": "UniOfflinePack.exe"
     }
   }
 }
