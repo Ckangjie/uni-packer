@@ -303,6 +303,22 @@ const packConfig = reactive({
   isUniApp: true
 })
 
+const savedConfigSnapshot = ref('')
+
+function extractConfigSnapshot() {
+  const { isPackageExtracted, isUniApp, ...rest } = packConfig
+  return JSON.stringify(rest)
+}
+
+function updateSavedConfigSnapshot() {
+  savedConfigSnapshot.value = extractConfigSnapshot()
+}
+
+const isConfigSaved = computed(() => {
+  if (!savedConfigSnapshot.value) return false
+  return savedConfigSnapshot.value === extractConfigSnapshot()
+})
+
 const canBuild = computed(() => {
   if (packConfig.isUniApp === false) return false
   const effectiveKeyPassword = packConfig.keyPassword?.trim() || packConfig.storePassword?.trim()
@@ -371,6 +387,7 @@ function onClearCache() {
   packConfig.versionName = ''
   packConfig.appId = ''
   iconPreviewUrl.value = ''
+  savedConfigSnapshot.value = ''
   showToast('🧹 已清除工作台历史项目记忆')
 }
 
@@ -475,6 +492,7 @@ async function loadConfigData(targetDir = '') {
       packConfig.appId = ''
       packConfig.apkName = ''
       iconPreviewUrl.value = ''
+      savedConfigSnapshot.value = ''
       return false
     }
 
@@ -513,6 +531,7 @@ async function loadConfigData(targetDir = '') {
     }
 
     await loadIcon(packConfig.projectDir)
+    updateSavedConfigSnapshot()
     return true
   } catch (err) {
     console.error('载入工程配置失败:', err)
@@ -566,6 +585,7 @@ async function onSaveConfig(isSilent = false) {
       is_default_cert: packConfig.isDefaultCert,
       is_uni_app: true
     })
+    updateSavedConfigSnapshot()
     if (!isSilent) {
       showToast('💾 打包配置已成功保存')
     }
@@ -759,7 +779,9 @@ async function onStartBuild() {
   terminalRef.value?.appendLog('🚀 启动本地纯原生离线打包流水线...\n', 'info')
 
   try {
-    await onSaveConfig(true)
+    if (!isConfigSaved.value) {
+      await onSaveConfig(true)
+    }
     await startOfflineBuildApi({
       project_dir: packConfig.projectDir,
       app_name: packConfig.appName,
