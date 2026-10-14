@@ -1,10 +1,10 @@
 <template>
   <div class="card log-terminal-card">
-    <div class="card-title">
-      <div class="title-left">
+    <div class="card-title flex justify-between items-center mb-3.5 pb-2">
+      <div class="title-left flex items-center gap-2 min-w-0">
         <span>📋 构建与打包实时日志</span>
       </div>
-      <div class="title-actions">
+      <div class="title-actions flex items-center gap-2 flex-shrink-0">
         <button
           class="btn btn-secondary btn-clear"
           :disabled="isBuilding || !hasLogs"

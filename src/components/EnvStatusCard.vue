@@ -1,20 +1,20 @@
 <template>
   <div class="card env-status-card">
-    <div class="card-title">
+    <div class="card-title flex justify-between items-center mb-3.5 pb-2">
       <span>🛠️ 底层环境检测</span>
       <span :class="['badge', overallBadgeClass]">{{ overallStatusText }}</span>
     </div>
 
-    <div class="status-list">
+    <div class="status-list grid grid-cols-2 gap-3 <md:grid-cols-1">
       <!-- JDK -->
-      <div class="status-item">
-        <div class="status-info">
+      <div class="status-item flex justify-between items-center p-2.5 gap-3">
+        <div class="status-info min-w-0 flex-1">
           <div class="status-label">JDK 运行环境 (需 JDK 17)</div>
           <div class="status-detail" :title="envData?.jdk?.path">
             {{ envData?.jdk?.ok ? envData.jdk.path : (envData?.jdk?.error ?? '未检测到 JDK 17，请安装并配置环境变量') }}
           </div>
         </div>
-        <div class="status-actions">
+        <div class="status-actions flex items-center gap-2 flex-shrink-0">
           <button
             v-if="!isJdkReady"
             class="btn-action-xs btn-jdk-download"
@@ -37,19 +37,19 @@
       </div>
 
       <!-- Android SDK -->
-      <div class="status-item">
-        <div class="status-info">
+      <div class="status-item flex justify-between items-center p-2.5 gap-3">
+        <div class="status-info min-w-0 flex-1">
           <div class="status-label">Android SDK (MVP 打包套件)</div>
           <div class="status-detail" :title="sdkDetailText">
             {{ sdkDetailText }}
           </div>
-          <div v-if="isDownloadingSdk" class="progress-bar-wrap">
+          <div v-if="isDownloadingSdk" class="progress-bar-wrap mt-1 w-full">
             <div class="progress-bar-track">
               <div class="progress-bar-fill" :style="{ width: `${sdkDownloadPercent}%` }"></div>
             </div>
           </div>
         </div>
-        <div class="status-actions">
+        <div class="status-actions flex items-center gap-2 flex-shrink-0">
           <button
             v-if="!isSdkReady && !isDownloadingSdk"
             class="btn-action-xs"
@@ -67,8 +67,8 @@
       </div>
 
       <!-- Android 宿主壳工程 -->
-      <div class="status-item">
-        <div class="status-info">
+      <div class="status-item flex justify-between items-center p-2.5 gap-3">
+        <div class="status-info min-w-0 flex-1">
           <div class="status-label">Android 宿主壳工程</div>
           <div class="status-detail" :title="envData?.shell?.path">
             {{ envData?.shell?.ok ? envData.shell.path : '未检测到壳工程目录' }}
@@ -80,19 +80,19 @@
       </div>
 
       <!-- Gradle 命令行 -->
-      <div class="status-item">
-        <div class="status-info">
+      <div class="status-item flex justify-between items-center p-2.5 gap-3">
+        <div class="status-info min-w-0 flex-1">
           <div class="status-label">Gradle 命令行</div>
           <div class="status-detail" :title="gradleDetailText">
             {{ gradleDetailText }}
           </div>
-          <div v-if="isDownloadingGradle" class="progress-bar-wrap">
+          <div v-if="isDownloadingGradle" class="progress-bar-wrap mt-1 w-full">
             <div class="progress-bar-track">
               <div class="progress-bar-fill" :style="{ width: `${gradleDownloadPercent}%` }"></div>
             </div>
           </div>
         </div>
-        <div class="status-actions">
+        <div class="status-actions flex items-center gap-2 flex-shrink-0">
           <button
             v-if="!isGradleReady && !isDownloadingGradle"
             class="btn-action-xs"
@@ -110,19 +110,19 @@
       </div>
 
       <!-- DCloud 基座核心 AAR -->
-      <div class="status-item">
-        <div class="status-info">
+      <div class="status-item flex justify-between items-center p-2.5 gap-3">
+        <div class="status-info min-w-0 flex-1">
           <div class="status-label">DCloud 基座核心 AAR</div>
           <div class="status-detail" :title="aarDetailText">
             {{ aarDetailText }}
           </div>
-          <div v-if="isDownloadingAar" class="progress-bar-wrap">
+          <div v-if="isDownloadingAar" class="progress-bar-wrap mt-1 w-full">
             <div class="progress-bar-track">
               <div class="progress-bar-fill" :style="{ width: `${aarDownloadPercent}%` }"></div>
             </div>
           </div>
         </div>
-        <div class="status-actions">
+        <div class="status-actions flex items-center gap-2 flex-shrink-0">
           <button
             v-if="!hasAar && !isDownloadingAar"
             class="btn-action-xs"
@@ -368,26 +368,10 @@ onUnmounted(() => {
 
 <style lang="scss" scoped>
 .env-status-card {
-  .status-list {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
-    gap: 12px;
-  }
-
   .status-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 8px 10px;
     background: rgba(255, 255, 255, 0.02);
     border: 1px solid var(--card-border);
     border-radius: 6px;
-    gap: 12px;
-  }
-
-  .status-info {
-    min-width: 0;
-    flex: 1;
   }
 
   .status-label {
@@ -404,13 +388,6 @@ onUnmounted(() => {
     text-overflow: ellipsis;
     white-space: nowrap;
     margin-top: 2px;
-  }
-
-  .status-actions {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-shrink: 0;
   }
 
   .btn-action-xs {
@@ -446,11 +423,6 @@ onUnmounted(() => {
     color: var(--primary, #3b82f6);
     font-family: monospace;
     font-weight: 600;
-  }
-
-  .progress-bar-wrap {
-    margin-top: 4px;
-    width: 100%;
   }
 
   .progress-bar-track {

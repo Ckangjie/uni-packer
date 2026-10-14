@@ -1,21 +1,21 @@
 <template>
-  <div class="pack-config-container">
+  <div class="pack-config-container grid grid-cols-2 gap-3 w-full <md:grid-cols-1 items-stretch">
     <!-- 分块 1：工程与应用基础 -->
-    <div class="card config-block-card block-app">
-      <div class="card-title">
+    <div class="card config-block-card block-app flex flex-col min-w-0 m-0 box-border">
+      <div class="card-title flex justify-between items-center mb-3">
         <span>📱 工程与应用基础</span>
       </div>
 
       <!-- 目标工程路径选择 -->
       <div class="project-picker-box">
-        <div class="picker-header">
-          <div class="picker-label-wrap">
+        <div class="picker-header flex justify-between items-center mb-1.5">
+          <div class="picker-label-wrap flex items-center gap-2">
             <label>📁 目标 uni-app 项目目录</label>
             <span v-if="modelValue.projectDir && modelValue.isUniApp === false" class="tag-not-uniapp">非 uni-app 工程</span>
           </div>
           <span class="picker-tip">自动识别包管理器</span>
         </div>
-        <div class="picker-row">
+        <div class="picker-row flex gap-2">
           <input
             type="text"
             class="form-control mono-input"
@@ -31,10 +31,10 @@
         </div>
       </div>
 
-      <!-- 中间并排排布行：应用桌面图标 + 最小化构建类型 -->
-      <div class="app-sub-row">
+      <!-- 中间并排排布行：应用桌面图标 + 最小化构建类型（5:5 平分） -->
+      <div class="app-sub-row grid grid-cols-2 gap-2.5 mb-2.5 <sm:grid-cols-1">
         <!-- 应用桌面图标 -->
-        <div class="icon-section">
+        <div class="icon-section flex items-center gap-2.5 h-full">
           <div class="icon-avatar">
             <img
               v-if="iconPreviewUrl && !hasIconLoadError"
@@ -45,8 +45,8 @@
             />
             <span v-else class="icon-fallback">📱</span>
           </div>
-          <div class="icon-meta">
-            <div class="icon-title-bar">
+          <div class="icon-meta flex-1 min-w-0">
+            <div class="icon-title-bar flex items-center justify-between">
               <span class="icon-title">应用桌面图标</span>
               <span v-if="hasIconUpdated" class="icon-status-ok">✅ 已同步</span>
             </div>
@@ -63,14 +63,14 @@
         </div>
 
         <!-- 构建类型（最小化分段胶囊，无提示文本） -->
-        <div class="pack-type-card">
-          <div class="pack-type-header">
+        <div class="pack-type-card flex flex-col justify-between h-full">
+          <div class="pack-type-header flex items-center justify-between mb-1">
             <span class="pack-type-label">🎯 构建类型</span>
           </div>
-          <div class="pack-type-group">
+          <div class="pack-type-group flex gap-0.5">
             <button
               type="button"
-              class="pack-type-btn"
+              class="pack-type-btn flex-1 flex items-center justify-center gap-1"
               :class="{ active: (modelValue.packType ?? 'release') === 'release' }"
               @click="updateField('packType', 'release')"
             >
@@ -79,7 +79,7 @@
             </button>
             <button
               type="button"
-              class="pack-type-btn"
+              class="pack-type-btn flex-1 flex items-center justify-center gap-1"
               :class="{ active: modelValue.packType === 'custom_base' }"
               @click="updateField('packType', 'custom_base')"
             >
@@ -91,7 +91,7 @@
       </div>
 
       <!-- 应用参数展示 (从 manifest.json 解析，只读) -->
-      <div class="form-grid-2">
+      <div class="form-grid-2 grid grid-cols-2 gap-x-3 gap-y-2 mt-0 <sm:grid-cols-1">
         <div class="form-group">
           <label>应用名称</label>
           <input
@@ -111,7 +111,7 @@
           />
         </div>
         <div class="form-group">
-          <label class="label-with-badge">
+          <label class="label-with-badge flex items-center justify-between mb-1.5">
             <span>应用包名 <span class="required-star">*</span></span>
             <span v-if="modelValue.isPackageExtracted" class="badge badge-ok badge-sm">已提取 (只读)</span>
             <span v-else class="badge badge-warn badge-sm">未提取 (可编辑)</span>
@@ -139,13 +139,13 @@
     </div>
 
     <!-- 分块 2：Android 签名证书与发行参数 -->
-    <div class="card config-block-card block-cert">
-      <div class="card-title">
-        <div class="cert-title-wrap">
+    <div class="card config-block-card block-cert flex flex-col min-w-0 m-0 box-border">
+      <div class="card-title flex justify-between items-center mb-3">
+        <div class="cert-title-wrap flex items-center gap-2">
           <span>🔑 签名证书与构建参数</span>
           <span v-if="modelValue.isDefaultCert" class="badge badge-ok">默认调试</span>
         </div>
-        <div class="cert-actions">
+        <div class="cert-actions flex items-center gap-1.5">
           <button class="btn btn-secondary btn-sm" @click="handleSelectCert">📁 选择证书</button>
           <button class="btn btn-secondary btn-sm btn-save" :disabled="isSaving" @click="handleSave">
             <span v-if="isSaving" class="spinner"></span>
@@ -154,12 +154,12 @@
         </div>
       </div>
 
-      <div class="cert-active-file">
+      <div class="cert-active-file flex items-center gap-1.5 mb-2.5 text-xs text-textMuted min-w-0">
         <span>当前生效文件:</span>
         <code :class="{ 'text-muted': !modelValue.storeFile }">{{ modelValue.storeFile || '未配置 (请选择证书)' }}</code>
       </div>
 
-      <div class="cert-inputs-grid">
+      <div class="cert-inputs-grid grid grid-cols-3 gap-2 mb-2.5 <sm:grid-cols-1">
         <div class="form-group">
           <label>证书密码</label>
           <input
@@ -195,7 +195,7 @@
         </div>
       </div>
 
-      <div class="publish-inputs-grid">
+      <div class="publish-inputs-grid grid grid-cols-2 gap-2 mb-2.5 <sm:grid-cols-1">
         <div class="form-group">
           <label>DCloud 离线 AppKey</label>
           <input
@@ -227,8 +227,8 @@
         </div>
       </div>
 
-      <div class="cert-sha1-box">
-        <div class="cert-sha1-info">
+      <div class="cert-sha1-box flex justify-between items-center gap-2.5 mt-0.5">
+        <div class="cert-sha1-info flex-1 min-w-0">
           <div class="cert-sha1-label">当前证书 SHA1 指纹：</div>
           <div class="copyable cert-sha1-val" @click="handleCopy(modelValue.sha1)">
             {{ modelValue.sha1 || '未提取/校验后生成' }}
@@ -369,29 +369,8 @@ function handleCopy(text) {
 
 <style lang="scss" scoped>
 .pack-config-container {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
-  gap: 12px;
-  width: 100%;
-  min-width: 0;
-  align-items: stretch;
-
-  @media (max-width: 860px) {
-    grid-template-columns: 1fr;
-  }
-
   .config-block-card {
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-    margin: 0;
-    box-sizing: border-box;
-
     .card-title {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 12px;
       font-size: 13px;
       font-weight: 600;
       color: var(--text-bright);
@@ -406,76 +385,43 @@ function handleCopy(text) {
       padding: 8px 12px;
       margin-bottom: 10px;
 
-      .picker-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 6px;
-
-        .picker-label-wrap {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-        }
-
-        label {
-          margin: 0;
-          color: #58a6ff;
-          font-weight: 600;
-          font-size: 12px;
-        }
-
-        .tag-not-uniapp {
-          display: inline-flex;
-          align-items: center;
-          padding: 1px 6px;
-          font-size: 11px;
-          color: #f85149;
-          background: rgba(248, 81, 73, 0.12);
-          border: 1px solid rgba(248, 81, 73, 0.35);
-          border-radius: 4px;
-          box-sizing: border-box;
-          line-height: 1.2;
-        }
-
-        .picker-tip {
-          font-size: 11px;
-          color: var(--text-muted);
-        }
+      label {
+        margin: 0;
+        color: var(--accent);
+        font-weight: 600;
+        font-size: 12px;
       }
 
-      .picker-row {
-        display: flex;
-        gap: 8px;
+      .tag-not-uniapp {
+        display: inline-flex;
+        align-items: center;
+        padding: 1px 6px;
+        font-size: 11px;
+        color: var(--danger);
+        background: rgba(248, 81, 73, 0.12);
+        border: 1px solid rgba(248, 81, 73, 0.35);
+        border-radius: 4px;
+        line-height: 1.2;
+      }
 
-        .btn-browse {
-          white-space: nowrap;
-          font-size: 12px;
-          padding: 4px 12px;
-        }
+      .picker-tip {
+        font-size: 11px;
+        color: var(--text-muted);
+      }
+
+      .btn-browse {
+        white-space: nowrap;
+        font-size: 12px;
+        padding: 4px 12px;
       }
     }
 
     .app-sub-row {
-      display: grid;
-      grid-template-columns: 1.15fr 0.85fr;
-      gap: 10px;
-      margin-bottom: 10px;
-
-      @media (max-width: 560px) {
-        grid-template-columns: 1fr;
-      }
-
       .icon-section {
-        display: flex;
-        align-items: center;
-        gap: 10px;
         background: rgba(255, 255, 255, 0.03);
         padding: 6px 10px;
         border-radius: 8px;
         border: 1px solid rgba(255, 255, 255, 0.06);
-        box-sizing: border-box;
-        height: 100%;
 
         .icon-avatar {
           width: 38px;
@@ -501,15 +447,6 @@ function handleCopy(text) {
         }
 
         .icon-meta {
-          flex: 1;
-          min-width: 0;
-
-          .icon-title-bar {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-          }
-
           .icon-title {
             font-size: 12px;
             font-weight: 500;
@@ -518,7 +455,7 @@ function handleCopy(text) {
 
           .icon-status-ok {
             font-size: 11px;
-            color: #3fb950;
+            color: var(--primary-hover);
           }
 
           .icon-tip {
@@ -542,18 +479,8 @@ function handleCopy(text) {
         border: 1px solid rgba(255, 255, 255, 0.06);
         border-radius: 8px;
         padding: 6px 10px;
-        display: flex;
-        flex-direction: column;
-        justify-content: space-between;
-        box-sizing: border-box;
-        height: 100%;
 
         .pack-type-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          margin-bottom: 4px;
-
           .pack-type-label {
             font-size: 12px;
             font-weight: 500;
@@ -562,24 +489,17 @@ function handleCopy(text) {
         }
 
         .pack-type-group {
-          display: flex;
           background: rgba(0, 0, 0, 0.28);
           padding: 2px;
           border-radius: 6px;
           border: 1px solid rgba(255, 255, 255, 0.06);
-          gap: 2px;
 
           .pack-type-btn {
-            flex: 1;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 4px;
             padding: 4px 6px;
             border-radius: 4px;
             background: transparent;
             border: 1px solid transparent;
-            color: var(--text-color, #c9d1d9);
+            color: var(--text);
             font-size: 11px;
             cursor: pointer;
             transition: all 0.15s ease;
@@ -593,7 +513,7 @@ function handleCopy(text) {
             &.active {
               background: rgba(88, 166, 255, 0.2);
               border-color: rgba(88, 166, 255, 0.5);
-              color: #58a6ff;
+              color: var(--accent);
               font-weight: 600;
               box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
             }
@@ -605,31 +525,10 @@ function handleCopy(text) {
         }
       }
     }
-
-    .form-grid-2 {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px 12px;
-      margin-top: 0;
-
-      @media (max-width: 480px) {
-        grid-template-columns: 1fr;
-      }
-    }
   }
 
   .block-cert {
-    .cert-title-wrap {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
     .cert-actions {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-
       .btn-save {
         padding: 3px 10px;
         font-size: 12px;
@@ -637,14 +536,6 @@ function handleCopy(text) {
     }
 
     .cert-active-file {
-      font-size: 12px;
-      color: var(--text-muted);
-      margin-bottom: 10px;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      min-width: 0;
-
       code {
         color: var(--accent);
         background: rgba(88, 166, 255, 0.1);
@@ -655,43 +546,13 @@ function handleCopy(text) {
       }
     }
 
-    .cert-inputs-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 8px;
-      margin-bottom: 10px;
-
-      @media (max-width: 600px) {
-        grid-template-columns: 1fr;
-      }
-    }
-
-    .publish-inputs-grid {
-      display: grid;
-      grid-template-columns: 1.1fr 1fr;
-      gap: 8px;
-      margin-bottom: 10px;
-
-      @media (max-width: 600px) {
-        grid-template-columns: 1fr;
-      }
-    }
-
     .cert-sha1-box {
-      margin-top: 2px;
       background: rgba(0, 0, 0, 0.25);
       border: 1px dashed rgba(88, 166, 255, 0.3);
       border-radius: 6px;
       padding: 8px 12px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 10px;
 
       .cert-sha1-info {
-        flex: 1;
-        min-width: 0;
-
         .cert-sha1-label {
           font-size: 11px;
           color: var(--text-muted);
@@ -699,7 +560,7 @@ function handleCopy(text) {
         }
 
         .cert-sha1-val {
-          color: #3fb950;
+          color: var(--primary-hover);
           font-size: 12px;
           overflow: hidden;
           text-overflow: ellipsis;
@@ -710,7 +571,7 @@ function handleCopy(text) {
   }
 
   .required-star {
-    color: #f85149;
+    color: var(--danger);
     margin-left: 2px;
   }
 
@@ -721,20 +582,13 @@ function handleCopy(text) {
 
   .btn-sm {
     padding: 2px 8px;
-    box-sizing: border-box;
     font-size: 11px;
   }
 
   .label-with-badge {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 6px;
-
     .badge-sm {
       font-size: 11px;
       padding: 1px 6px;
-      box-sizing: border-box;
       font-weight: 500;
     }
   }

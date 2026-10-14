@@ -1,8 +1,8 @@
 <template>
   <div class="card pack-guide-card">
-    <div class="card-title">
+    <div class="card-title flex justify-between items-center mb-3.5 pb-2">
       <span>📘 离线打包与环境指引</span>
-      <div class="title-actions">
+      <div class="title-actions flex items-center gap-1.5">
         <button class="btn btn-secondary btn-sm" @click="toggleAllGuides">
           {{ isAllExpanded ? '一键折叠' : '一键展开' }}
         </button>
@@ -10,17 +10,17 @@
       </div>
     </div>
 
-    <div class="guide-list">
+    <div class="guide-list flex flex-col gap-2.5">
       <details class="guide-item" :open="guideStates[0]">
         <summary @click.prevent="toggleGuide(0)">
-          <span class="summary-label">
-            <span class="step-num">1</span>
+          <span class="summary-label flex items-center gap-1.5">
+            <span class="step-num inline-flex items-center justify-center">1</span>
             <span>☕ JDK 17 安装与环境变量配置指南</span>
           </span>
         </summary>
         <div class="guide-content">
           <div class="guide-sub-heading">📥 推荐下载通道（需 64 位 JDK 17）</div>
-          <div class="guide-action-row">
+          <div class="guide-action-row flex flex-wrap gap-2 my-2">
             <button
               class="btn btn-secondary btn-sm"
               @click="handleOpenUrl('https://adoptium.net/temurin/releases/?version=17')"
@@ -61,8 +61,8 @@
 
       <details class="guide-item" :open="guideStates[1]">
         <summary @click.prevent="toggleGuide(1)">
-          <span class="summary-label">
-            <span class="step-num">2</span>
+          <span class="summary-label flex items-center gap-1.5">
+            <span class="step-num inline-flex items-center justify-center">2</span>
             <span>🔑 生成自有签名证书 (.keystore)</span>
           </span>
         </summary>
@@ -80,8 +80,8 @@
 
       <details class="guide-item" :open="guideStates[2]">
         <summary @click.prevent="toggleGuide(2)">
-          <span class="summary-label">
-            <span class="step-num">3</span>
+          <span class="summary-label flex items-center gap-1.5">
+            <span class="step-num inline-flex items-center justify-center">3</span>
             <span>⚙️ 将证书配置至工作台</span>
           </span>
         </summary>
@@ -94,8 +94,8 @@
 
       <details class="guide-item" :open="guideStates[3]">
         <summary @click.prevent="toggleGuide(3)">
-          <span class="summary-label">
-            <span class="step-num">4</span>
+          <span class="summary-label flex items-center gap-1.5">
+            <span class="step-num inline-flex items-center justify-center">4</span>
             <span>🌐 申请并绑定 DCloud 离线 AppKey</span>
           </span>
         </summary>
@@ -109,8 +109,8 @@
 
       <details class="guide-item" :open="guideStates[4]">
         <summary @click.prevent="toggleGuide(4)">
-          <span class="summary-label">
-            <span class="step-num">5</span>
+          <span class="summary-label flex items-center gap-1.5">
+            <span class="step-num inline-flex items-center justify-center">5</span>
             <span>🧩 云端与原生插件离线支持</span>
           </span>
         </summary>
@@ -125,8 +125,8 @@
 
       <details class="guide-item" :open="guideStates[5]">
         <summary @click.prevent="toggleGuide(5)">
-          <span class="summary-label">
-            <span class="step-num step-num-warn">6</span>
+          <span class="summary-label flex items-center gap-1.5">
+            <span class="step-num step-num-warn inline-flex items-center justify-center">6</span>
             <span>⚠️ 核心避坑与排错指南</span>
           </span>
         </summary>
@@ -181,22 +181,10 @@ defineExpose({
 
 <style lang="scss" scoped>
 .pack-guide-card {
-  .title-actions {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-
   .btn-sm {
     font-size: 11px;
     padding: 2px 8px;
     height: 24px;
-  }
-
-  .guide-list {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
   }
 
   .guide-item {
@@ -236,21 +224,12 @@ defineExpose({
       transform: rotate(180deg);
     }
 
-    .summary-label {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-
     .step-num {
       background: #1f6feb;
       color: #fff;
       width: 18px;
       height: 18px;
       border-radius: 50%;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
       font-size: 11px;
       font-weight: bold;
     }
@@ -287,11 +266,6 @@ defineExpose({
       }
 
       .guide-action-row {
-        display: flex;
-        gap: 8px;
-        margin: 6px 0 10px 0;
-        flex-wrap: wrap;
-
         .btn {
           font-size: 12px;
           padding: 4px 10px;

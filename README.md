@@ -32,6 +32,9 @@
 ## ✨ 核心特性
 
 - 🚀 **零 Android Studio 依赖**：无需安装或打开 AS，后台无头直接调度 Gradle 守护进程完成编译。
+- 🛠️ **双构建模式（正式包 / 自定义基座）**：
+  - **正式包（Release）**：全自动化编译、签名并归档至 `dist/*.apk`；
+  - **自定义基座（Custom Base）**：一键生成调试基座并精准输出至 `unpackage/debug/android_debug.apk`，无缝对接 HBuilderX 真机运行调试。
 - 🛠️ **底层环境智能诊断与国内镜像自愈**：
   - 自动嗅探 JDK 17、Android SDK、Gradle 8.0 及 DCloud 基座 AAR 26 个核心依赖包；
   - 提供华为云 JDK、Adoptium、腾讯云 Gradle 镜像以及定制 Android SDK MVP 套件的一键下载与静默配置。
@@ -43,8 +46,12 @@
   - 别名默认联动 uni-app AppID，内置测试证书一键还原。
 - 💾 **包名历史记忆库 (`package-cache.json`)**：
   - 以 Android 包名为 Key 自动缓存各项目的签名配置与自定义 APK 命名，切换项目时秒级自动回显。
+- 🎨 **现代化前端架构设计**：
+  - **UnoCSS + SCSS + CSS Variables** 样式分层体系，极致精简且易于维护；
+  - **Views 目录架构**：`App.vue` 仅作为纯净根组件，视图页面解耦至 `src/views/` 目录；
+  - **交互体验**：构建结果智能底部悬浮滑出，支持一键定位产物目录与主动关闭。
 - 📦 **纯净构建与零污染**：
-  - 打包过程中仅读取配置并输出最终产物至 `dist/*.apk`，不在用户源码工程中生成多余的 `config/` 或 `scripts/` 目录。
+  - 打包过程中仅读取配置并输出最终产物至对应目录，不在用户源码工程中生成多余配置污点。
 - 💻 **免安装绿色便携**：打包产物为单文件便携可执行程序 `UniOfflinePack.exe`，解压即用。
 
 ---
@@ -163,16 +170,18 @@ uniapp-pack-desktop/
 │   └── build.gradle          # Gradle 顶层构建脚本
 ├── src/                      # Vue 3 前端渲染进程
 │   ├── api/                  # 前端 IPC 通信契约封装
-│   ├── components/           # 页面核心卡片组件 (配置卡片、环境看板、日志终端、避坑指南)
+│   ├── components/           # 页面复用组件 (配置表单、终端日志、环境看板、避坑指南)
+│   ├── views/                # 业务视图页面 (HomeView, WorkbenchView, EnvView, GuideView, SettingsView)
 │   ├── config/               # 签名配置 (signing-config) 与包名缓存 (package-cache)
-│   ├── styles/               # SCSS 全局样式与暗黑主题
-│   ├── App.vue               # 渲染进程主组件
-│   └── main.js               # 前端应用入口
+│   ├── styles/               # SCSS 全局样式与 Token 变量体系
+│   ├── App.vue               # 渲染进程纯净根组件
+│   └── main.js               # 前端应用入口 (注册 UnoCSS)
 ├── docs/                     # 业务全链路流转文档
 │   └── business-flow/        # 15步全链路标准化设计文档
 ├── index.html                # 桌面端 HTML 入口 (内联秒开骨架屏)
 ├── package.json              # 项目描述与依赖清单
-└── vite.config.js            # Vite 构建配置 (本地开发监听 1420 端口)
+├── uno.config.mjs            # UnoCSS 原子类与设计 Token 配置
+└── vite.config.mjs           # Vite 构建配置 (ESM 模式，监听 1420 端口)
 ```
 
 ---
