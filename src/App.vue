@@ -300,7 +300,8 @@ const packConfig = reactive({
   appKey: '',
   apkName: '',
   isDefaultCert: false,
-  isUniApp: true
+  isUniApp: true,
+  packType: 'release'
 })
 
 const savedConfigSnapshot = ref('')
@@ -519,6 +520,7 @@ async function loadConfigData(targetDir = '') {
       packConfig.sha1 = data.sha1 ?? ''
       packConfig.appKey = data.app_key ?? ''
       packConfig.isDefaultCert = Boolean(data.is_default_cert)
+      packConfig.packType = data.pack_type || 'release'
 
       const isDifferentProject = oldPkg && oldPkg !== newPkg
       if (isDifferentProject) {
@@ -583,7 +585,8 @@ async function onSaveConfig(isSilent = false) {
       app_key: packConfig.appKey,
       apk_name: packConfig.apkName,
       is_default_cert: packConfig.isDefaultCert,
-      is_uni_app: true
+      is_uni_app: true,
+      pack_type: packConfig.packType || 'release'
     })
     updateSavedConfigSnapshot()
     if (!isSilent) {
@@ -690,7 +693,10 @@ async function onOpenDistDir(customPath = '') {
   try {
     let targetDir = customPath || buildResult.value?.apkPath || ''
     if (!targetDir) {
-      targetDir = packConfig.projectDir ? `${packConfig.projectDir}\\dist` : ''
+      const isCustomBase = packConfig.packType === 'custom_base'
+      targetDir = packConfig.projectDir
+        ? (isCustomBase ? `${packConfig.projectDir}\\unpackage\\debug` : `${packConfig.projectDir}\\dist`)
+        : ''
     } else if (targetDir.toLowerCase().endsWith('.apk')) {
       const lastSlash = Math.max(targetDir.lastIndexOf('/'), targetDir.lastIndexOf('\\'))
       if (lastSlash > 0) {
@@ -775,8 +781,14 @@ async function onStartBuild() {
   isBuilding.value = true
   buildResult.value = null
 
+  const isCustomBase = packConfig.packType === 'custom_base'
   terminalRef.value?.clearLog()
-  terminalRef.value?.appendLog('🚀 启动本地纯原生离线打包流水线...\n', 'info')
+  terminalRef.value?.appendLog(
+    isCustomBase
+      ? '🚀 启动本地 uni-app 自定义基座打包流水线...\n'
+      : '🚀 启动本地纯原生离线打包流水线...\n',
+    'info'
+  )
 
   try {
     if (!isConfigSaved.value) {
@@ -785,10 +797,11 @@ async function onStartBuild() {
     await startOfflineBuildApi({
       project_dir: packConfig.projectDir,
       app_name: packConfig.appName,
-      apk_name: packConfig.apkName || null,
+      apk_name: isCustomBase ? 'android_debug.apk' : (packConfig.apkName || null),
       package_name: packConfig.packageName,
       app_id: packConfig.appId,
-      app_key: packConfig.appKey
+      app_key: packConfig.appKey,
+      pack_type: packConfig.packType || 'release'
     })
   } catch (err) {
     isBuilding.value = false
@@ -808,10 +821,13 @@ onMounted(async () => {
       if (successMatch && successMatch[1]) {
         const outPath = successMatch[1].trim()
         isBuilding.value = false
+        const isCurrentCustomBase = packConfig.packType === 'custom_base' || outPath.includes('unpackage')
         buildResult.value = {
           isSuccess: true,
           apkPath: outPath,
-          message: `🎉 打包成功！产物已输出至: ${outPath}`
+          message: isCurrentCustomBase
+            ? `🎉 自定义基座打包成功！产物已输出至: ${outPath}`
+            : `🎉 打包成功！产物已输出至: ${outPath}`
         }
       }
     }
@@ -820,10 +836,13 @@ onMounted(async () => {
   unlistenDone = await listenBuildDone((payload) => {
     isBuilding.value = false
     if (payload?.success) {
+      const isCurrentCustomBase = payload?.is_custom_base || packConfig.packType === 'custom_base'
       buildResult.value = {
         isSuccess: true,
         apkPath: payload.apk_path,
-        message: `🎉 打包成功！产物已输出至: ${payload.apk_path}`
+        message: payload.message || (isCurrentCustomBase
+          ? `🎉 自定义基座打包成功！产物已输出至: ${payload.apk_path}`
+          : `🎉 打包成功！产物已输出至: ${payload.apk_path}`)
       }
     } else {
       buildResult.value = {

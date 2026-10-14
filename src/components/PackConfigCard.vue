@@ -31,32 +31,62 @@
         </div>
       </div>
 
-      <!-- 应用桌面图标 -->
-      <div class="icon-section">
-        <div class="icon-avatar">
-          <img
-            v-if="iconPreviewUrl && !hasIconLoadError"
-            :src="iconPreviewUrl"
-            alt="App Icon"
-            @error="hasIconLoadError = true"
-            @load="hasIconLoadError = false"
-          />
-          <span v-else class="icon-fallback">📱</span>
-        </div>
-        <div class="icon-meta">
-          <div class="icon-title-bar">
-            <span class="icon-title">应用桌面图标</span>
-            <span v-if="hasIconUpdated" class="icon-status-ok">✅ 已保存并同步</span>
+      <!-- 中间并排排布行：应用桌面图标 + 最小化构建类型 -->
+      <div class="app-sub-row">
+        <!-- 应用桌面图标 -->
+        <div class="icon-section">
+          <div class="icon-avatar">
+            <img
+              v-if="iconPreviewUrl && !hasIconLoadError"
+              :src="iconPreviewUrl"
+              alt="App Icon"
+              @error="hasIconLoadError = true"
+              @load="hasIconLoadError = false"
+            />
+            <span v-else class="icon-fallback">📱</span>
           </div>
-          <div class="icon-tip">推荐 512×512 正方形图片 (PNG/JPG)</div>
-          <input
-            ref="iconInputRef"
-            type="file"
-            accept="image/png,image/jpeg,image/webp"
-            style="display: none;"
-            @change="onIconFileSelected"
-          />
-          <button class="btn btn-secondary btn-sm" @click="triggerSelectIcon">🖼️ 更换新图标</button>
+          <div class="icon-meta">
+            <div class="icon-title-bar">
+              <span class="icon-title">应用桌面图标</span>
+              <span v-if="hasIconUpdated" class="icon-status-ok">✅ 已同步</span>
+            </div>
+            <div class="icon-tip">512×512 正方形图片</div>
+            <input
+              ref="iconInputRef"
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              style="display: none;"
+              @change="onIconFileSelected"
+            />
+            <button class="btn btn-secondary btn-sm" @click="triggerSelectIcon">🖼️ 更换新图标</button>
+          </div>
+        </div>
+
+        <!-- 构建类型（最小化分段胶囊，无提示文本） -->
+        <div class="pack-type-card">
+          <div class="pack-type-header">
+            <span class="pack-type-label">🎯 构建类型</span>
+          </div>
+          <div class="pack-type-group">
+            <button
+              type="button"
+              class="pack-type-btn"
+              :class="{ active: (modelValue.packType ?? 'release') === 'release' }"
+              @click="updateField('packType', 'release')"
+            >
+              <span class="btn-icon">📦</span>
+              <span class="btn-text">正式包</span>
+            </button>
+            <button
+              type="button"
+              class="pack-type-btn"
+              :class="{ active: modelValue.packType === 'custom_base' }"
+              @click="updateField('packType', 'custom_base')"
+            >
+              <span class="btn-icon">🛠️</span>
+              <span class="btn-text">基座</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -180,6 +210,14 @@
         <div class="form-group">
           <label>输出 APK 文件名</label>
           <input
+            v-if="modelValue.packType === 'custom_base'"
+            type="text"
+            class="form-control mono-input input-readonly"
+            value="android_debug.apk (HBuilderX基座规范)"
+            readonly
+          />
+          <input
+            v-else
             type="text"
             class="form-control"
             :value="modelValue.apkName"
@@ -418,64 +456,152 @@ function handleCopy(text) {
       }
     }
 
-    .icon-section {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      background: rgba(255, 255, 255, 0.03);
-      padding: 8px 12px;
-      border-radius: 8px;
-      border: 1px solid rgba(255, 255, 255, 0.06);
+    .app-sub-row {
+      display: grid;
+      grid-template-columns: 1.15fr 0.85fr;
+      gap: 10px;
       margin-bottom: 10px;
 
-      .icon-avatar {
-        width: 44px;
-        height: 44px;
-        border-radius: 10px;
-        overflow: hidden;
-        border: 1px solid var(--card-border);
-        background: #000;
+      @media (max-width: 560px) {
+        grid-template-columns: 1fr;
+      }
+
+      .icon-section {
         display: flex;
         align-items: center;
-        justify-content: center;
-        flex-shrink: 0;
+        gap: 10px;
+        background: rgba(255, 255, 255, 0.03);
+        padding: 6px 10px;
+        border-radius: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        box-sizing: border-box;
+        height: 100%;
 
-        img {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
+        .icon-avatar {
+          width: 38px;
+          height: 38px;
+          border-radius: 8px;
+          overflow: hidden;
+          border: 1px solid var(--card-border);
+          background: #000;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+
+          img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+          }
+
+          .icon-fallback {
+            font-size: 18px;
+          }
         }
 
-        .icon-fallback {
-          font-size: 20px;
+        .icon-meta {
+          flex: 1;
+          min-width: 0;
+
+          .icon-title-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+          }
+
+          .icon-title {
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--text-bright);
+          }
+
+          .icon-status-ok {
+            font-size: 11px;
+            color: #3fb950;
+          }
+
+          .icon-tip {
+            font-size: 10px;
+            color: var(--text-muted);
+            margin: 1px 0 2px 0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+          }
+
+          .btn-sm {
+            padding: 1px 6px;
+            font-size: 11px;
+          }
         }
       }
 
-      .icon-meta {
-        flex: 1;
-        min-width: 0;
+      .pack-type-card {
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: 8px;
+        padding: 6px 10px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        box-sizing: border-box;
+        height: 100%;
 
-        .icon-title-bar {
+        .pack-type-header {
           display: flex;
           align-items: center;
           justify-content: space-between;
+          margin-bottom: 4px;
+
+          .pack-type-label {
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--text-bright);
+          }
         }
 
-        .icon-title {
-          font-size: 12px;
-          font-weight: 500;
-          color: var(--text-bright);
-        }
+        .pack-type-group {
+          display: flex;
+          background: rgba(0, 0, 0, 0.28);
+          padding: 2px;
+          border-radius: 6px;
+          border: 1px solid rgba(255, 255, 255, 0.06);
+          gap: 2px;
 
-        .icon-status-ok {
-          font-size: 11px;
-          color: #3fb950;
-        }
+          .pack-type-btn {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            padding: 4px 6px;
+            border-radius: 4px;
+            background: transparent;
+            border: 1px solid transparent;
+            color: var(--text-color, #c9d1d9);
+            font-size: 11px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            white-space: nowrap;
 
-        .icon-tip {
-          font-size: 11px;
-          color: var(--text-muted);
-          margin: 2px 0 4px 0;
+            &:hover {
+              color: var(--text-bright);
+              background: rgba(255, 255, 255, 0.06);
+            }
+
+            &.active {
+              background: rgba(88, 166, 255, 0.2);
+              border-color: rgba(88, 166, 255, 0.5);
+              color: #58a6ff;
+              font-weight: 600;
+              box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+            }
+
+            .btn-icon {
+              font-size: 11px;
+            }
+          }
         }
       }
     }
@@ -484,7 +610,7 @@ function handleCopy(text) {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 8px 12px;
-      margin-top: auto;
+      margin-top: 0;
 
       @media (max-width: 480px) {
         grid-template-columns: 1fr;
@@ -552,7 +678,7 @@ function handleCopy(text) {
     }
 
     .cert-sha1-box {
-      margin-top: auto;
+      margin-top: 2px;
       background: rgba(0, 0, 0, 0.25);
       border: 1px dashed rgba(88, 166, 255, 0.3);
       border-radius: 6px;

@@ -851,23 +851,41 @@ async function runBuildPipeline(sender, params) {
     if (json?.appid) appid = json.appid.trim();
   }
 
+  const isCustomBase = Boolean(
+    params?.pack_type === 'custom_base' ||
+    params?.packType === 'custom_base' ||
+    params?.apk_name === 'android_debug.apk' ||
+    (params?.apk_name && params.apk_name.toLowerCase().endsWith('android_debug.apk'))
+  );
+  const packModeText = isCustomBase ? '🛠️ 自定义基座 (Custom Base)' : '📦 正式包 (Release APK)';
+
   let finalApkName = (params?.apk_name || '').trim();
-  if (!finalApkName) {
-    const rcPath = path.join(targetDir, 'scripts/.packrc.json');
-    if (fs.existsSync(rcPath)) {
-      try {
-        const rc = JSON.parse(fs.readFileSync(rcPath, 'utf8'));
-        if (rc.apkName) finalApkName = rc.apkName.trim();
-      } catch (e) {}
+  if (isCustomBase) {
+    finalApkName = 'android_debug.apk';
+  } else {
+    if (!finalApkName) {
+      const rcPath = path.join(targetDir, 'scripts/.packrc.json');
+      if (fs.existsSync(rcPath)) {
+        try {
+          const rc = JSON.parse(fs.readFileSync(rcPath, 'utf8'));
+          if (rc.apkName) finalApkName = rc.apkName.trim();
+        } catch (e) {}
+      }
     }
+    if (!finalApkName) finalApkName = `${appName}_v${version}.apk`;
+    if (!finalApkName.toLowerCase().endsWith('.apk')) finalApkName += '.apk';
   }
-  if (!finalApkName) finalApkName = `${appName}_v${version}.apk`;
-  if (!finalApkName.toLowerCase().endsWith('.apk')) finalApkName += '.apk';
 
   sendLog('==================================================\n', 'info');
   sendLog(`🎯 目标工程目录: ${targetDir}\n`, 'info');
   sendLog(`📱 应用信息: ${appName} (v${version}, ${appid})\n`, 'info');
-  sendLog('🚀 [Step 1/4] 准备前端 app-plus 离线资源...\n', 'info');
+  sendLog(`⚙️ 构建模式: ${packModeText}\n`, 'info');
+  sendLog(
+    isCustomBase
+      ? '🚀 [Step 1/4] 准备基座调试运行环境与离线资源...\n'
+      : '🚀 [Step 1/4] 准备前端 app-plus 离线资源...\n',
+    'info'
+  );
   sendLog('==================================================\n', 'info');
 
   const executeShellSteps = async (customSourceDist = null) => {
@@ -875,22 +893,41 @@ async function runBuildPipeline(sender, params) {
     sendLog('📂 [Step 2/4] 同步编译资源到 Android 壳工程...\n', 'info');
     sendLog('==================================================\n', 'info');
 
-    const sourceDist = customSourceDist || findSourceDist(targetDir, appid);
-    if (!fs.existsSync(sourceDist)) {
-      sendLog(`\n❌ 未找到前端构建产出目录: ${sourceDist}\n`, 'err');
-      ACTIVE_BUILD = null;
-      sender.send('build-done', { success: false, message: '未找到前端产物目录' });
-      return;
-    }
-
     const targetAppDir = path.join(SHELL_DIR, `app/src/main/assets/apps/${appid}/www`);
-    try {
-      await copyDirInto(targetAppDir, sourceDist);
-    } catch (e) {
-      sendLog(`\n❌ 资源同步失败: ${e.message}\n`, 'err');
-      ACTIVE_BUILD = null;
-      sender.send('build-done', { success: false, message: e.message });
-      return;
+
+    if (customSourceDist === '__MINIMAL_BASE__') {
+      try {
+        if (!fs.existsSync(targetAppDir)) fs.mkdirSync(targetAppDir, { recursive: true });
+        const manifestPath = findManifestPath(targetDir);
+        if (fs.existsSync(manifestPath)) {
+          fs.copyFileSync(manifestPath, path.join(targetAppDir, 'manifest.json'));
+        } else {
+          fs.writeFileSync(path.join(targetAppDir, 'manifest.json'), JSON.stringify({ id: appid, name: appName }), 'utf8');
+        }
+        sendLog(`📄 基座骨架配置已同步: ${path.join(targetAppDir, 'manifest.json')}\n`);
+      } catch (e) {
+        sendLog(`\n❌ 基座极简资源生成失败: ${e.message}\n`, 'err');
+        ACTIVE_BUILD = null;
+        sender.send('build-done', { success: false, message: e.message });
+        return;
+      }
+    } else {
+      const sourceDist = customSourceDist || findSourceDist(targetDir, appid);
+      if (!fs.existsSync(sourceDist)) {
+        sendLog(`\n❌ 未找到前端构建产出目录: ${sourceDist}\n`, 'err');
+        ACTIVE_BUILD = null;
+        sender.send('build-done', { success: false, message: '未找到前端产物目录' });
+        return;
+      }
+
+      try {
+        await copyDirInto(targetAppDir, sourceDist);
+      } catch (e) {
+        sendLog(`\n❌ 资源同步失败: ${e.message}\n`, 'err');
+        ACTIVE_BUILD = null;
+        sender.send('build-done', { success: false, message: e.message });
+        return;
+      }
     }
 
     const controlXmlPath = path.join(SHELL_DIR, 'app/src/main/assets/data/dcloud_control.xml');
@@ -1003,18 +1040,32 @@ async function runBuildPipeline(sender, params) {
       sendLog('==================================================\n', 'info');
 
       const apkSource = path.join(SHELL_DIR, 'app/build/outputs/apk/debug/app-debug.apk');
-      const distDir = path.join(targetDir, 'dist');
-      if (!fs.existsSync(distDir)) fs.mkdirSync(distDir, { recursive: true });
-      const apkTarget = path.join(distDir, finalApkName);
+      let apkTarget = '';
+      if (isCustomBase) {
+        const customBaseDir = path.join(targetDir, 'unpackage/debug');
+        if (!fs.existsSync(customBaseDir)) fs.mkdirSync(customBaseDir, { recursive: true });
+        apkTarget = path.join(customBaseDir, 'android_debug.apk');
+      } else {
+        const distDir = path.join(targetDir, 'dist');
+        if (!fs.existsSync(distDir)) fs.mkdirSync(distDir, { recursive: true });
+        apkTarget = path.join(distDir, finalApkName);
+      }
 
       if (fs.existsSync(apkSource)) {
         fs.copyFileSync(apkSource, apkTarget);
         sendLog(`✅ APK 文件已输出: ${apkTarget}\n`, 'info');
+        if (isCustomBase) {
+          sendLog(`💡 提示: 自定义基座已输出至 unpackage/debug/android_debug.apk！\n`, 'info');
+          sendLog(`💡 请在 HBuilderX 中点击【运行】->【运行到手机或模拟器】->勾选【运行时是否使用自定义基座】开启实时调试。\n`, 'info');
+        }
         const donePayload = {
           success: true,
-          apk_name: finalApkName,
+          is_custom_base: isCustomBase,
+          apk_name: isCustomBase ? 'android_debug.apk' : finalApkName,
           apk_path: apkTarget,
-          message: '🎉 离线打包成功！产物已输出。',
+          message: isCustomBase
+            ? '🎉 自定义基座打包成功！已自动输出至 unpackage/debug/android_debug.apk'
+            : '🎉 离线打包成功！产物已输出。',
         };
         try { sender.send('build-done', donePayload); } catch (e) {}
         if (mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents && mainWindow.webContents !== sender) {
@@ -1030,6 +1081,19 @@ async function runBuildPipeline(sender, params) {
       }
     });
   };
+
+  if (isCustomBase) {
+    sendLog('🛠️ 自定义基座模式：跳过前端业务构建，准备原生调试基座...\n', 'info');
+    const existingDist = findSourceDist(targetDir, appid);
+    if (existingDist && fs.existsSync(existingDist)) {
+      sendLog(`📂 检测到现有工程离线资源，复用为基座底座: ${existingDist}\n`);
+      await executeShellSteps(existingDist);
+    } else {
+      sendLog(`📄 使用极简基座 manifest 骨架直编原生壳...\n`);
+      await executeShellSteps('__MINIMAL_BASE__');
+    }
+    return;
+  }
 
   const strategy = determineBuildStrategy(targetDir, appid);
 
@@ -1354,6 +1418,7 @@ function registerIpcHandlers() {
         app_id: appid,
         app_key: appkey,
         apk_name: apkName,
+        pack_type: pkgCache?.pack_type || 'release',
         store_file: effectiveStoreFile,
         store_password: effectiveStorePassword,
         key_alias: effectiveKeyAlias,
@@ -1411,6 +1476,7 @@ function registerIpcHandlers() {
           sha1: sha1,
           is_default_cert: isDefaultCert,
           apk_name: apkName,
+          pack_type: cfg.pack_type ?? cfg.packType ?? 'release',
         });
       }
 
